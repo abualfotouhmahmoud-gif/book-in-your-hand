@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Book in Your Hand</title>
+<meta name="theme-color" content="#2e1e14">
+<meta name="description" content="Read PDF books like a real book.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="pdf.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#f3ead8;
+    background:radial-gradient(ellipse at 50% 40%,#5a4330 0%,#3a2a1e 55%,#22180f 100%);}
+  body.reading[data-theme=night]{background:#0e0d0c}
+  #book{position:fixed;inset:0;touch-action:none;display:block}
+  #dim,#tint{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0}
+  #dim{background:#000}
+  #tint{background:rgb(255,140,40);mix-blend-mode:multiply}
+  body:not(.reading) #dim, body:not(.reading) #tint{display:none}
+
+  .bar{position:fixed;left:0;right:0;display:flex;align-items:center;gap:4px;
+    padding:8px 8px;background:rgba(25,17,11,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    transition:transform .25s ease,opacity .25s ease;z-index:5}
+  #top{top:0;padding-top:calc(8px + env(safe-area-inset-top))}
+  #bottom{bottom:0;padding-bottom:calc(10px + env(safe-area-inset-bottom));flex-direction:column;align-items:stretch;gap:4px}
+  body.hide-bars #top, body.annot #top{transform:translateY(-110%);opacity:0;pointer-events:none}
+  body.hide-bars #bottom, body.annot #bottom{transform:translateY(110%);opacity:0;pointer-events:none}
+  body:not(.reading) #top, body:not(.reading) #bottom{display:none}
+  #title{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;opacity:.9;padding:0 4px;unicode-bidi:plaintext}
+  .ib{width:38px;height:38px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:10px;
+    background:transparent;color:#f3ead8;cursor:pointer;font-size:16px;font-weight:600;font-family:inherit}
+  .ib:active{background:rgba(243,234,216,.15)}
+  .ib svg{width:22px;height:22px}
+  #bmBtn.on svg{fill:#d0573f;stroke:#d0573f}
+  .brow{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px}
+  #count{background:none;border:none;color:#f3ead8;font-size:13px;font-family:inherit;padding:4px 2px;cursor:pointer;white-space:nowrap;
+    text-decoration:underline dotted rgba(243,234,216,.5);text-underline-offset:3px;font-variant-numeric:tabular-nums}
+  #stat{opacity:.75;text-align:right;font-variant-numeric:tabular-nums}
+  #slider{width:100%;accent-color:#c9a66b;height:26px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(243,234,216,.25);
+    background:rgba(243,234,216,.08);color:#f3ead8;border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn:active{background:rgba(243,234,216,.2)}
+  .btn.primary{background:#c9a66b;color:#2a1d12;border-color:#c9a66b;font-weight:600}
+  .btn.small{padding:9px 14px;font-size:14px}
+  .btn.danger{background:#a8452f;border-color:#a8452f;color:#fff}
+  input[type=file]{display:none}
+
+  /* floating pills */
+  .pill{position:fixed;z-index:4;bottom:calc(16px + env(safe-area-inset-bottom));display:none;align-items:center;gap:8px;
+    background:rgba(25,17,11,.9);border:1px solid rgba(243,234,216,.2);border-radius:20px;padding:7px 12px;font-size:13px;
+    color:#f3ead8;font-family:inherit;cursor:pointer;transition:bottom .25s}
+  .pill.on{display:inline-flex}
+  body:not(.hide-bars) .pill{bottom:calc(92px + env(safe-area-inset-bottom))}
+  body.annot .pill{display:none}
+  #backPill{right:12px}
+  #backPill .x{opacity:.6;padding-left:6px;border-left:1px solid rgba(243,234,216,.25)}
+  #autoPill{left:12px}
+  #autoBar{position:fixed;top:0;left:0;height:3px;background:#c9a66b;z-index:4;width:0;display:none}
+  #autoBar.on{display:block}
+
+  /* annotation toolbar */
+  #annBar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:none;justify-content:space-around;gap:2px;
+    padding:8px 6px calc(10px + env(safe-area-inset-bottom));background:rgba(25,17,11,.94)}
+  body.annot #annBar{display:flex}
+  #annBar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;color:#f3ead8;
+    font-size:11px;font-family:inherit;padding:6px 2px;border-radius:10px;cursor:pointer;opacity:.75}
+  #annBar button b{font-size:19px;line-height:1;font-weight:400}
+  #annBar button.on{background:rgba(201,166,107,.22);opacity:1;color:#e9c98e}
+  #annBar #annDone{color:#2a1d12;background:#c9a66b;opacity:1;font-weight:600}
+  #annHint{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6;display:none;
+    background:rgba(25,17,11,.85);padding:6px 12px;border-radius:14px;font-size:12px}
+  body.annot #annHint{display:block}
+
+  /* library */
+  #library{position:fixed;inset:0;z-index:6;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    background:radial-gradient(ellipse at 50% 30%,#5a4330 0%,#3a2a1e 60%,#22180f 100%);
+    padding:calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+  body.reading #library{display:none}
+  .libhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .libhead h1{font-size:22px;font-weight:700}
+  #goalCard{background:rgba(243,234,216,.07);border:1px solid rgba(243,234,216,.12);border-radius:14px;padding:12px 14px;margin-bottom:14px;display:none}
+  #goalCard .gtop{display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px;gap:8px}
+  #goalCard .gbar{height:6px;border-radius:3px;background:rgba(243,234,216,.12);overflow:hidden}
+  #goalCard .gbar i{display:block;height:100%;background:#c9a66b;border-radius:3px}
+  #libTools{display:none;gap:8px;margin-bottom:10px}
+  #libQ{flex:1;min-width:0;background:rgba(243,234,216,.08);border:1px solid rgba(243,234,216,.2);border-radius:10px;color:#f3ead8;
+    padding:8px 12px;font-size:15px;font-family:inherit;unicode-bidi:plaintext}
+  #libSort{background:rgba(243,234,216,.08);border:1px solid rgba(243,234,216,.2);border-radius:10px;color:#f3ead8;padding:8px;font-size:14px;font-family:inherit}
+  #libSort option{color:#222}
+  #chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;border:1px solid rgba(243,234,216,.25);background:none;color:#f3ead8;border-radius:16px;padding:6px 13px;font-size:13px;font-family:inherit;cursor:pointer;unicode-bidi:plaintext}
+  .chip.on{background:#c9a66b;color:#2a1d12;border-color:#c9a66b;font-weight:600}
+  #empty{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:40px 10px}
+  #empty h2{font-size:22px}
+  #empty p{max-width:340px;opacity:.85;line-height:1.5;font-size:15px}
+  .hints{font-size:13px;opacity:.75;line-height:1.9;max-width:340px;text-align:left}
+  .bookicon{width:84px;height:84px}
+  #noMatch{display:none;opacity:.65;text-align:center;padding:30px 0;font-size:14px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:18px 14px}
+  .card{position:relative;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+  .cover{position:relative;aspect-ratio:1/1.414;background:#fbf8f1;border-radius:3px 6px 6px 3px;overflow:hidden;
+    box-shadow:0 6px 16px rgba(0,0,0,.5), inset -6px 0 8px -4px rgba(0,0,0,.25)}
+  .cover img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .name{font-size:13px;line-height:1.3;max-height:2.6em;overflow:hidden;unicode-bidi:plaintext}
+  .card .prog{height:3px;background:rgba(243,234,216,.15);border-radius:2px;overflow:hidden}
+  .card .prog i{display:block;height:100%;background:#c9a66b}
+  .card .pg{font-size:11px;opacity:.65}
+  .card .more{position:absolute;top:6px;left:6px;width:30px;height:30px;border-radius:50%;border:none;
+    background:rgba(0,0,0,.55);color:#fff;font-size:17px;line-height:30px;cursor:pointer;font-weight:700}
+  .badge{position:absolute;bottom:6px;right:6px;background:#c9a66b;color:#2a1d12;font-size:10px;font-weight:700;padding:3px 6px;border-radius:6px}
+  .badge.done{background:#5d8a4e;color:#fff}
+  .shelfTag{font-size:10px;opacity:.6;unicode-bidi:plaintext}
+  #usage{text-align:center;font-size:12px;opacity:.55;margin-top:26px;line-height:1.7}
+
+  /* sheets */
+  #scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:7;opacity:0;pointer-events:none;transition:opacity .2s}
+  #scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:8;background:#2e2219;border-radius:18px 18px 0 0;
+    padding:10px 18px calc(18px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s ease;
+    max-height:86vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,.4);max-width:640px;margin:0 auto}
+  .sheet.open{transform:none}
+  .grab{width:40px;height:4px;border-radius:2px;background:rgba(243,234,216,.3);margin:0 auto 8px}
+  .sec{font-size:11px;letter-spacing:.8px;text-transform:uppercase;opacity:.5;margin:14px 0 2px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid rgba(243,234,216,.08);font-size:15px}
+  .row small{display:block;font-size:12px;opacity:.6;margin-top:2px}
+  .row input[type=range]{flex:1;max-width:55%;accent-color:#c9a66b}
+  .val{font-size:12px;opacity:.75;min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+  .seg{display:flex;background:rgba(243,234,216,.08);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:none;background:transparent;color:#f3ead8;padding:7px 11px;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer}
+  .seg button.on{background:#c9a66b;color:#2a1d12;font-weight:600}
+  .sw{cursor:pointer}
+  .sw input{display:none}
+  .sw i{flex:none;position:relative;width:46px;height:28px;border-radius:14px;background:rgba(243,234,216,.2);transition:background .2s}
+  .sw i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#f3ead8;transition:transform .2s}
+  .sw input:checked + i{background:#c9a66b}
+  .sw input:checked + i::after{transform:translateX(18px)}
+  #menu h3{font-size:15px;font-weight:600;opacity:.8;padding:4px 4px 10px;unicode-bidi:plaintext}
+
+  .side{position:fixed;top:0;bottom:0;right:0;width:min(90vw,400px);z-index:8;background:#2e2219;display:flex;flex-direction:column;
+    transform:translateX(105%);transition:transform .25s ease;box-shadow:-8px 0 30px rgba(0,0,0,.4);
+    padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .side.open{transform:none}
+  .tabs{display:flex;border-bottom:1px solid rgba(243,234,216,.12);overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:1 0 auto;border:none;background:none;color:#f3ead8;opacity:.6;padding:14px 10px;font-size:13px;font-family:inherit;cursor:pointer;border-bottom:2px solid transparent}
+  .tabs button.on{opacity:1;border-bottom-color:#c9a66b;font-weight:600}
+  .pv{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding:6px 0}
+  .pv.on{display:block}
+  .item{display:block;width:100%;text-align:start;border:none;background:none;color:#f3ead8;padding:11px 14px;font-size:15px;
+    line-height:1.4;font-family:inherit;cursor:pointer;border-bottom:1px solid rgba(243,234,216,.06)}
+  .item:active{background:rgba(243,234,216,.08)}
+  .item.dangerTxt{color:#f08a74}
+  .item .meta{font-size:12px;opacity:.6;display:block;margin-bottom:2px;direction:ltr;text-align:left}
+  .item .txt{display:block;unicode-bidi:plaintext}
+  .bmrow{display:flex;align-items:stretch}
+  .bmrow .item{flex:1}
+  .bmrow .x{border:none;background:none;color:#f3ead8;opacity:.6;width:44px;font-size:18px;cursor:pointer;border-bottom:1px solid rgba(243,234,216,.06)}
+  .muted{opacity:.65;padding:18px 16px;font-size:14px;line-height:1.5}
+  .thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:12px}
+  .th{border:none;background:none;color:#f3ead8;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-family:inherit}
+  .th .tbox{width:100%;aspect-ratio:1/1.414;background:#fbf8f1;border-radius:2px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  .th .tbox img{width:100%;height:100%;object-fit:contain;display:block}
+  .th.cur .tbox{outline:3px solid #c9a66b;outline-offset:2px}
+  .th.cur span{color:#e9c98e;font-weight:700}
+  .quote{border-bottom:1px solid rgba(243,234,216,.08);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+  .quote img{width:100%;border-radius:4px;background:#fff;cursor:pointer}
+  .quote .qrow{display:flex;justify-content:space-between;font-size:12px;opacity:.75}
+  .quote .qrow button{border:none;background:none;color:#f08a74;font-size:12px;cursor:pointer;font-family:inherit}
+  #findForm{display:flex;gap:8px;padding:10px 12px}
+  #findIn{flex:1;min-width:0;background:rgba(243,234,216,.08);border:1px solid rgba(243,234,216,.2);border-radius:10px;
+    color:#f3ead8;padding:9px 12px;font-size:16px;font-family:inherit}
+  #findStatus{font-size:12px;opacity:.65;padding:0 14px 6px}
+
+  #dlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:10;padding:24px}
+  #dlg.on{display:flex}
+  .dbox{background:#3a2a1e;border:1px solid rgba(243,234,216,.2);border-radius:14px;padding:20px;max-width:330px;width:100%}
+  .dbox p{line-height:1.5;margin-bottom:14px;font-size:15px;unicode-bidi:plaintext}
+  #dinp{width:100%;background:rgba(243,234,216,.08);border:1px solid rgba(243,234,216,.25);border-radius:10px;color:#f3ead8;
+    padding:10px 12px;font-size:16px;margin-bottom:14px;font-family:inherit;unicode-bidi:plaintext}
+  .drow{display:flex;gap:10px;justify-content:flex-end}
+
+  #toast{position:fixed;left:50%;bottom:130px;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;
+    padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:11;max-width:90vw;text-align:center}
+  #toast.on{opacity:1}
+  #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9;font-size:15px;background:rgba(20,14,9,.55)}
+  #loading.on{display:flex}
+</style>
+</head>
+<body class="hide-bars">
+<canvas id="book"></canvas>
+<div id="dim"></div><div id="tint"></div>
+<div id="autoBar"></div>
+
+<div id="library">
+  <div class="libhead">
+    <h1>My Library</h1>
+    <label class="btn primary small">+ Add books<input type="file" accept="application/pdf,.pdf" class="fileIn" multiple></label>
+  </div>
+  <div id="goalCard"><div class="gtop"><span id="gText"></span><span id="gStreak"></span></div><div class="gbar"><i id="gFill"></i></div></div>
+  <div id="libTools">
+    <input id="libQ" type="search" placeholder="Search your books" autocomplete="off">
+    <select id="libSort"><option value="recent">Recent</option><option value="name">Name</option><option value="progress">Progress</option></select>
+  </div>
+  <div id="chips"></div>
+  <div id="empty">
+    <svg class="bookicon" viewBox="0 0 64 64" fill="none" stroke="#c9a66b" stroke-width="2.5" stroke-linejoin="round">
+      <path d="M12 10h30a10 10 0 0 1 10 10v34H22a10 10 0 0 1-10-10z"/><path d="M52 20v34"/><path d="M20 22h24M20 30h24M20 38h16"/>
+    </svg>
+    <h2>Book in Your Hand</h2>
+    <p>Add your PDF books once — they stay here in your library, with your place saved in each one. Arabic books read right&#8209;to&#8209;left, English books left&#8209;to&#8209;right.</p>
+    <div class="hints">
+      • Swipe or tap the page edge to turn pages<br>
+      • Tap the <b>centre</b> for the menu · <b>double-tap</b> or pinch to zoom<br>
+      • Turn your phone sideways to see two pages
+    </div>
+  </div>
+  <div id="noMatch">No books match.</div>
+  <div id="grid"></div>
+  <div id="usage"></div>
+</div>
+
+<header id="top" class="bar">
+  <button class="ib" id="libBtn" title="Library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div id="title"></div>
+  <button class="ib" id="annBtn" title="Highlight, draw, clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
+  <button class="ib" id="bmBtn" title="Bookmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
+  <button class="ib" id="navBtn" title="Contents, pages, bookmarks, quotes, search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></button>
+  <button class="ib" id="setBtn" title="Reading settings">Aa</button>
+  <button class="ib" id="fsBtn" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+</header>
+<footer id="bottom" class="bar">
+  <div class="brow"><button id="count">Page – of –</button><span id="stat"></span></div>
+  <input type="range" id="slider" dir="rtl" min="1" max="1" value="1">
+</footer>
+
+<button class="pill" id="backPill"><span id="backTxt">↩ Back</span><span class="x" id="backX">✕</span></button>
+<button class="pill" id="autoPill"><span id="autoTxt">Auto</span><span>■</span></button>
+
+<div id="annHint">Draw on the page · two fingers to zoom</div>
+<div id="annBar">
+  <button data-tool="hl" class="on"><b>▬</b>Highlight</button>
+  <button data-tool="pen"><b>✎</b>Pen</button>
+  <button data-tool="erase"><b>⌫</b>Eraser</button>
+  <button data-tool="clip"><b>✂</b>Quote</button>
+  <button id="annUndo"><b>↶</b>Undo</button>
+  <button id="annDone"><b>✓</b>Done</button>
+</div>
+
+<div id="scrim"></div>
+
+<div id="settings" class="sheet">
+  <div class="grab"></div>
+  <div class="sec">This book</div>
+  <div class="row"><span>Reading direction</span>
+    <div class="seg" id="dirSeg"><button data-v="rtl">Right → Left</button><button data-v="ltr">Left → Right</button></div></div>
+  <div class="row"><span>Page 1 of the PDF is a<small>Sets which pages face right and left — important for the Qur’an</small></span>
+    <div class="seg" id="sideSeg"><button data-v="0">Right page</button><button data-v="1">Left page</button></div></div>
+  <div class="row"><span id="sideNow">This page is a right page</span><button class="btn small" id="sideFlip">Make it a right page</button></div>
+  <label class="row sw"><span>Enhance scanned pages<small>Whiter paper, darker text — for faded scans</small></span><input type="checkbox" id="optEnh"><i></i></label>
+  <div class="sec">Display</div>
+  <div class="row"><span>Theme</span>
+    <div class="seg" id="themeSeg"><button data-v="day">Day</button><button data-v="sepia">Sepia</button><button data-v="night">Night</button></div></div>
+  <div class="row"><span>Brightness</span><input type="range" id="bright" min="0.35" max="1" step="0.01"></div>
+  <div class="row"><span>Warmth</span><input type="range" id="warm" min="0" max="1" step="0.01"></div>
+  <label class="row sw"><span>Trim white margins<small>Bigger text on small screens</small></span><input type="checkbox" id="optCrop"><i></i></label>
+  <label class="row sw"><span>Real book view<small>Gutter curve and cover edge; right and left pages alternate</small></span><input type="checkbox" id="optBook"><i></i></label>
+  <label class="row sw"><span>Two pages in landscape<small>Turn the phone sideways to open the book</small></span><input type="checkbox" id="optSpread"><i></i></label>
+  <label class="row sw"><span>Half-page mode<small>Portrait only — each page in two halves</small></span><input type="checkbox" id="optHalf"><i></i></label>
+  <div class="sec">Reading</div>
+  <label class="row sw"><span>Auto page-turn<small id="autoNote">Turns to the next page by itself</small></span><input type="checkbox" id="optAuto"><i></i></label>
+  <div class="row"><span>Turn every</span><input type="range" id="autoSec" min="5" max="180" step="5"><span class="val" id="autoVal"></span></div>
+  <div class="row"><span>Daily goal</span><input type="range" id="goal" min="5" max="100" step="5"><span class="val" id="goalVal"></span></div>
+  <label class="row sw"><span>Keep screen on<small id="awakeNote">While a book is open</small></span><input type="checkbox" id="optAwake"><i></i></label>
+  <label class="row sw"><span>Page-turn sound</span><input type="checkbox" id="optSound"><i></i></label>
+  <label class="row sw"><span>Vibration<small>On phones that support it</small></span><input type="checkbox" id="optVibe"><i></i></label>
+</div>
+
+<div id="menu" class="sheet"><div class="grab"></div><h3 id="mtitle"></h3><div id="mopts"></div></div>
+
+<div id="panel" class="side">
+  <div class="tabs">
+    <button data-t="toc" class="on">Contents</button><button data-t="pages">Pages</button><button data-t="bm">Bookmarks</button><button data-t="quotes">Quotes</button><button data-t="find">Search</button>
+  </div>
+  <div class="pv on" id="pv-toc"></div>
+  <div class="pv" id="pv-pages"></div>
+  <div class="pv" id="pv-bm"></div>
+  <div class="pv" id="pv-quotes"></div>
+  <div class="pv" id="pv-find">
+    <form id="findForm"><input id="findIn" type="search" placeholder="Search in this book" dir="auto" autocomplete="off"><button class="btn primary">Find</button></form>
+    <div id="findStatus"></div><div id="findRes"></div>
+  </div>
+</div>
+
+<div id="dlg"><form class="dbox" id="dform"><p id="dmsg"></p><input id="dinp"><div class="drow">
+  <button type="button" class="btn" id="dno">Cancel</button><button type="submit" class="btn primary" id="dyes">OK</button></div></form></div>
+<div id="loading">Opening book…</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const lib = window['pdfjs-dist/build/pdf'];
+if (!lib) { $('empty').querySelector('p').textContent = 'Could not load the PDF engine. Please reinstall the app.'; return; }
+lib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+
+/* ================= settings ================= */
+const DEF = {theme:'day', bright:1, warm:0, crop:true, half:false, spread:true, bookView:true, awake:true, sound:true, vibe:true, autoSec:30, goal:20};
+const S = Object.assign({}, DEF);
+try { Object.assign(S, JSON.parse(localStorage.getItem('rtl-settings') || '{}')); } catch(_){}
+function saveS(){ try { localStorage.setItem('rtl-settings', JSON.stringify(S)); } catch(_){} }
+const THEMES = {
+  day:   {paper:'#fbf8f1', stack:['#e9e2d2','#d8cfbb'], hint:'#b9ad95', shine:'rgba(255,255,255,0.28)'},
+  sepia: {paper:'#f4ead4', stack:['#e6d9bc','#d6c7a6'], hint:'#a8987a', shine:'rgba(255,250,235,0.25)'},
+  night: {paper:'#191714', stack:['#2b2723','#211e1a'], hint:'#6d655a', shine:'rgba(255,255,255,0.05)'}
+};
+const T = () => THEMES[S.theme] || THEMES.day;
+
+/* ================= state ================= */
+const cv = $('book'), ctx = cv.getContext('2d');
+let pdf = null, nPages = 0, nViews = 0, cur = 1, dpr = 1, aspect = 1.414, gen = 0, pageW = 1, pageH = 1.414;
+let mode = 'single';                      // 'single' | 'half' | 'book' | 'spread'
+let camX = 0;                             // book view: which page of the open spread the camera looks at
+let R = {x:0, y:0, w:0, h:0};             // R.w = width of ONE page
+const BW = () => mode === 'spread' ? 2*R.w : R.w;          // visible book width
+const TWO = () => mode === 'spread' || mode === 'book';     // two-sided pages (a real book)
+const off = () => (curMeta && curMeta.off) ? 1 : 0;         // 1 = PDF page 1 is a LEFT page (shifts right/left pairing)
+const cache = new Map(), pending = new Set();
+let anim = null, busy = false, curMeta = null, saveT = null;
+let Z = {s:1, tx:0, ty:0};
+const zoomHi = new Map();
+let outline = null, textCache = new Map(), thumbCache = new Map();
+let returnPage = null;
+const FULL = {x0:0, y0:0, x1:1, y1:1};
+const reading = () => document.body.classList.contains('reading');
+const LTR = () => !!(curMeta && curMeta.dir === 'ltr');
+const annot = {on:false, tool:'hl', drawing:null, rc:null, erasing:null, clip:null, hist:[]};
+
+/* ================= views & slots =================
+   A "view" is one screen: one page (single), half a page (half) or two facing pages (spread).
+   A "slot" is one rendered image: "12:f" = whole page 12, "12:t"/"12:b" = its top/bottom half. */
+function crop(){ return (S.crop && curMeta && curMeta.crop) ? curMeta.crop : FULL; }
+function computeMode(){
+  const land = innerWidth > innerHeight && innerWidth >= 560;
+  mode = (S.spread && land) ? 'spread' : (S.half ? 'half' : (S.bookView ? 'book' : 'single'));
+}
+function countViews(){ return mode==='spread' ? Math.ceil((nPages+off())/2) : mode==='half' ? nPages*2 : nPages; }
+function realPage(v){ return mode==='spread' ? Math.max(1, 2*v-1-off()) : mode==='half' ? Math.ceil(v/2) : v; }
+function firstView(p){ return mode==='spread' ? Math.ceil((p+off())/2) : mode==='half' ? 2*p-1 : p; }
+function keyFor(p, part){ return p + ':' + (part || 'f'); }
+function regionOf(key){
+  const [ps, part] = key.split(':'), c = crop();
+  let y0 = c.y0, y1 = c.y1;
+  if (part !== 'f') { const h = y1-y0; if (part === 't') y1 = y0 + h*0.53; else y0 = y1 - h*0.53; }
+  return {page:+ps, part, x0:c.x0, x1:c.x1, y0, y1};
+}
+function spreadSlots(sv){ const r = 2*sv-1-off(), l = 2*sv-off(); return {right: (r >= 1 && r <= nPages) ? keyFor(r) : null, left: (l >= 1 && l <= nPages) ? keyFor(l) : null}; }
+function slotsOf(v){
+  if (v < 1 || v > nViews) return {};
+  if (mode === 'spread') return spreadSlots(v);
+  if (mode === 'book') return spreadSlots(Math.ceil((v+off())/2));
+  if (mode === 'half') return {main:keyFor(Math.ceil(v/2), v%2 ? 't' : 'b')};
+  return {main:keyFor(v)};
+}
+function keysOf(v){ const s = slotsOf(v); return [s.main, s.right, s.left].filter(Boolean); }
+function computeAspect(){
+  const c = crop();
+  aspect = (pageH*(c.y1-c.y0)) / (pageW*(c.x1-c.x0)) * (mode === 'half' ? 0.53 : 1);
+}
+
+/* ================= layout ================= */
+function invalidate(){ gen++; cache.clear(); pending.clear(); zoomHi.clear(); }
+function layout(){
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const w = innerWidth, h = innerHeight;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  cv.style.width = w+'px'; cv.style.height = h+'px';
+  const m = mode === 'book' ? 22 : 10, k = mode === 'spread' ? 2 : 1;
+  let pw = (w - 2*m)/k, ph = pw*aspect;
+  if (ph > h - 2*m) { ph = h - 2*m; pw = ph/aspect; }
+  if (Math.abs(pw - R.w) > 2 || Math.abs(ph - R.h) > 2) invalidate();
+  R = {x:(w - k*pw)/2, y:(h - ph)/2, w:pw, h:ph};
+  Z = {s:1, tx:0, ty:0}; zoomHi.clear(); setCam();
+}
+const isRightPage = p => (p + off()) % 2 === 1;
+function setCam(){ camX = (mode === 'book' && pdf && isRightPage(cur)) ? R.w : 0; }
+function relayout(){
+  const p = pdf ? realPage(cur) : 1;
+  const old = mode; computeMode();
+  if (mode !== old) invalidate();
+  if (pdf) { nViews = countViews(); computeAspect(); }
+  layout();
+  if (pdf) { cur = Math.max(1, Math.min(nViews, firstView(p))); setCam(); updateUI(); prefetch(); }
+  draw();
+}
+
+/* ================= image processing ================= */
+function enhanceImg(c, cx){
+  const id = cx.getImageData(0,0,c.width,c.height), d = id.data, w = c.width, h = c.height, n = w*h;
+  const G = new Float32Array(n), hist = new Uint32Array(256);
+  for (let i=0,j=0;i<n;i++,j+=4){ const l = (d[j]*299 + d[j+1]*587 + d[j+2]*114)/1000; G[i] = l; hist[l|0]++; }
+  let acc = 0, lo = 0, hi = 255;
+  for (let l=0;l<256;l++){ acc += hist[l]; if (acc >= n*0.02) { lo = l; break; } }
+  acc = 0; for (let l=0;l<256;l++){ acc += hist[l]; if (acc >= n*0.5) { hi = l; break; } }
+  hi = Math.max(lo + 40, hi - 6);
+  const lut = new Float32Array(256);
+  for (let l=0;l<256;l++){ const t = Math.max(0, Math.min(1, (l-lo)/(hi-lo))); lut[l] = Math.pow(t, 1.5)*255; }
+  const O = new Float32Array(n);
+  for (let i=0;i<n;i++) O[i] = lut[G[i]|0];
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){           // light sharpening
+    const i = y*w+x; let v = O[i];
+    if (x>0 && y>0 && x<w-1 && y<h-1) v = v + 0.6*(4*O[i] - O[i-1] - O[i+1] - O[i-w] - O[i+w]);
+    v = v < 0 ? 0 : v > 255 ? 255 : v;
+    const j = i*4; d[j] = d[j+1] = d[j+2] = v;
+  }
+  cx.putImageData(id,0,0);
+}
+function applyTheme(c, cx){
+  if (S.theme === 'day') return;
+  const id = cx.getImageData(0,0,c.width,c.height), d = id.data;
+  if (S.theme === 'sepia') {
+    const p0 = 244/255, p1 = 234/255, p2 = 212/255;
+    for (let i=0;i<d.length;i+=4){ d[i]*=p0; d[i+1]*=p1; d[i+2]*=p2; }
+  } else {
+    const dk = [25,23,20], k = [(214-25)/255, (205-23)/255, (188-20)/255];
+    for (let i=0;i<d.length;i+=4){ d[i]=dk[0]+(255-d[i])*k[0]; d[i+1]=dk[1]+(255-d[i+1])*k[1]; d[i+2]=dk[2]+(255-d[i+2])*k[2]; }
+  }
+  cx.putImageData(id,0,0);
+}
+async function renderRegion(key, pxW){
+  const r = regionOf(key);
+  const page = await pdf.getPage(r.page), v1 = page.getViewport({scale:1});
+  const rw = (r.x1-r.x0)*v1.width, rh = (r.y1-r.y0)*v1.height;
+  const scale = Math.min(pxW/rw, 4096/rw, 4096/rh);
+  const vp = page.getViewport({scale, offsetX:-r.x0*v1.width*scale, offsetY:-r.y0*v1.height*scale});
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(rw*scale)); c.height = Math.max(1, Math.round(rh*scale));
+  const cx = c.getContext('2d', {willReadFrequently:true});
+  cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:cx, viewport:vp}).promise;
+  if (curMeta && curMeta.enhance) enhanceImg(c, cx);
+  applyTheme(c, cx);
+  return c;
+}
+function img(key){
+  const c = cache.get(key);
+  if (c) { cache.delete(key); cache.set(key, c); return c; }
+  load(key); return null;
+}
+async function load(key){
+  if (!key || pending.has(key) || !pdf) return;
+  const g = gen; pending.add(key);
+  try {
+    const c = await renderRegion(key, R.w*dpr);
+    if (g !== gen) return;
+    cache.set(key, c);
+    if (cache.size > 14) {
+      const keep = new Set(); for (let v=cur-2; v<=cur+2; v++) keysOf(v).forEach(k=>keep.add(k));
+      for (const k of [...cache.keys()]) { if (cache.size <= 14) break; if (!keep.has(k)) cache.delete(k); }
+    }
+    draw();
+  } catch (e) { console.error(e); }
+  finally { if (g === gen) pending.delete(key); }
+}
+function prefetch(){ for (const v of [cur, cur+1, cur-1, cur+2]) for (const k of keysOf(v)) if (!cache.has(k)) load(k); }
+
+/* ================= drawing ================= */
+function rootT(){
+  const m = LTR();
+  ctx.setTransform(m ? -1 : 1, 0, 0, 1, m ? cv.width : 0, 0);     // left-to-right books: mirror the whole scene
+  ctx.transform(dpr*Z.s, 0, 0, dpr*Z.s, (R.x+Z.tx-camX*Z.s)*dpr, (R.y+Z.ty)*dpr);
+}
+function fitRect(key, ox){
+  const r = regionOf(key), c = zoomHi.get(key) || cache.get(key);
+  let iw, ih; if (c) { iw = c.width; ih = c.height; } else { iw = (r.x1-r.x0)*pageW; ih = (r.y1-r.y0)*pageH; }
+  const s = Math.min(R.w/iw, R.h/ih);
+  return {x:ox + (R.w-iw*s)/2, y:(R.h-ih*s)/2, w:iw*s, h:ih*s, r, page:r.page, part:r.part, key};
+}
+function drawImg(c, rc){                                           // …and un-mirror each page image
+  if (LTR()) { ctx.save(); ctx.translate(rc.x+rc.w, rc.y); ctx.scale(-1,1); ctx.drawImage(c,0,0,rc.w,rc.h); ctx.restore(); }
+  else ctx.drawImage(c, rc.x, rc.y, rc.w, rc.h);
+}
+function drawText(t, x, y){
+  ctx.save(); ctx.translate(x,y); if (LTR()) ctx.scale(-1,1);
+  ctx.fillStyle = T().hint; ctx.font = '15px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText(t,0,0); ctx.restore();
+}
+function toFrac(rc, bx, by){
+  let fr = (bx-rc.x)/rc.w; if (LTR()) fr = 1-fr;
+  return [rc.r.x0 + fr*(rc.r.x1-rc.r.x0), rc.r.y0 + ((by-rc.y)/rc.h)*(rc.r.y1-rc.r.y0)];
+}
+function fromFrac(rc, fx, fy){
+  let fr = (fx-rc.r.x0)/(rc.r.x1-rc.r.x0); if (LTR()) fr = 1-fr;
+  return {x:rc.x + fr*rc.w, y:rc.y + (fy-rc.r.y0)/(rc.r.y1-rc.r.y0)*rc.h};
+}
+function isBookmarked(p){ return !!(curMeta && curMeta.bookmarks && curMeta.bookmarks.some(b => b.page === p)); }
+function ribbon(rc, ox){
+  if (rc.part === 'b' || !isBookmarked(rc.page)) return;
+  const x = ox + R.w*0.07, w = 14, h = 36;
+  ctx.fillStyle = '#c0412d';
+  ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+w,0); ctx.lineTo(x+w,h); ctx.lineTo(x+w/2,h-7); ctx.lineTo(x,h); ctx.closePath(); ctx.fill();
+}
+function strokeList(p){ return (curMeta && curMeta.ann && curMeta.ann[p]) || []; }
+function drawStrokes(rc){
+  const list = strokeList(rc.page).slice();
+  if (annot.drawing && annot.drawing.page === rc.page) list.push(annot.drawing);
+  if (!list.length) return;
+  const fullH = rc.h/(rc.r.y1-rc.r.y0);
+  ctx.save(); ctx.beginPath(); ctx.rect(rc.x, rc.y, rc.w, rc.h); ctx.clip();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const s of list) {
+    if (!s.pts.length) continue;
+    ctx.strokeStyle = s.t === 'hl' ? (S.theme === 'night' ? 'rgba(255,210,0,0.30)' : 'rgba(255,214,0,0.42)') : '#d23b2a';
+    ctx.lineWidth = s.t === 'hl' ? fullH*0.017 : Math.max(1.5, fullH*0.0028);
+    ctx.beginPath();
+    s.pts.forEach((q,i)=>{ const p = fromFrac(rc, q[0], q[1]); i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y); });
+    if (s.pts.length === 1) { const p = fromFrac(rc, s.pts[0][0], s.pts[0][1]); ctx.lineTo(p.x+0.5, p.y); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawSlot(key, ox){
+  ctx.fillStyle = T().paper; ctx.fillRect(ox, 0, R.w, R.h);
+  if (!key) return;
+  const c = (Z.s > 1.001 && zoomHi.get(key)) || img(key);
+  const rc = fitRect(key, ox);
+  if (c) drawImg(c, rc); else drawText('Loading…', ox + R.w/2, R.h/2);
+  drawStrokes(rc); ribbon(rc, ox);
+}
+function spine(){
+  const a = S.theme === 'night' ? 0.45 : 0.16, W = R.w;
+  if (TWO()) {                                   // gutter: the page curves down into the binding
+    const gw = Math.max(26, W*0.13), night = S.theme === 'night';
+    const hl = night ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.16)';
+    for (const side of [-1, 1]) {
+      const x0 = W + side*gw, g = ctx.createLinearGradient(x0, 0, W, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.45, 'rgba(0,0,0,'+(a*0.25)+')');
+      g.addColorStop(0.68, hl); g.addColorStop(0.86, 'rgba(0,0,0,'+(a*1.3)+')'); g.addColorStop(1, 'rgba(0,0,0,'+Math.min(0.7,a*2.8)+')');
+      ctx.fillStyle = g; ctx.fillRect(Math.min(x0, W), 0, gw, R.h);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,'+Math.min(0.6,a*2.5)+')'; ctx.fillRect(W-0.6, 0, 1.2, R.h);
+  } else {
+    const g = ctx.createLinearGradient(W-22,0,W,0); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,'+a+')');
+    ctx.fillStyle = g; ctx.fillRect(W-22,0,22,R.h);
+  }
+}
+function drawStack(){
+  const p = realPage(cur), st = T().stack, bw = BW();
+  const kL = Math.max(1, Math.min(6, Math.ceil((nPages-p)/15)));
+  const kR = TWO() ? Math.max(1, Math.min(6, Math.ceil(p/15))) : 0;
+  const fw = TWO() ? 2*R.w : R.w;
+  if (TWO()) {                                   // the book's cover board peeking out behind the pages
+    const ex = 8, x0 = -kL*1.6 - ex, x1 = fw + kR*1.6 + ex, y0 = -ex*0.8, y1 = R.h + ex + 2, rr = 7;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 26*dpr; ctx.shadowOffsetY = 8*dpr;
+    const cg = ctx.createLinearGradient(0, y0, 0, y1);
+    const night = S.theme === 'night';
+    cg.addColorStop(0, night ? '#3a1714' : '#6e2a22'); cg.addColorStop(1, night ? '#250e0c' : '#4a1913');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.moveTo(x0+rr,y0); ctx.lineTo(x1-rr,y0); ctx.quadraticCurveTo(x1,y0,x1,y0+rr); ctx.lineTo(x1,y1-rr);
+    ctx.quadraticCurveTo(x1,y1,x1-rr,y1); ctx.lineTo(x0+rr,y1); ctx.quadraticCurveTo(x0,y1,x0,y1-rr); ctx.lineTo(x0,y0+rr);
+    ctx.quadraticCurveTo(x0,y0,x0+rr,y0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,220,180,0.10)'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 22*dpr; ctx.shadowOffsetY = 6*dpr;
+  ctx.fillStyle = T().paper; ctx.fillRect(-kL*1.6, 0, fw + kL*1.6 + kR*1.6, R.h + 4);
+  ctx.restore();
+  for (let i=kL; i>=1; i--) { ctx.fillStyle = st[i%2]; ctx.fillRect(-i*1.6, i*0.6, R.w, R.h); }
+  for (let i=kR; i>=1; i--) { ctx.fillStyle = st[i%2]; ctx.fillRect(R.w + i*1.6, i*0.6, R.w, R.h); }
+}
+function clipPoly(poly,n,M,sign){
+  const f = q => sign*((q.x-M.x)*n.x + (q.y-M.y)*n.y);
+  const out = [];
+  for (let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length], fa=f(a), fb=f(b);
+    if (fa>=0) out.push(a);
+    if ((fa>=0)!==(fb>=0)) { const t=fa/(fa-fb); out.push({x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t}); }
+  }
+  return out;
+}
+function geom(P, cy){
+  const W=R.w, H=R.h, S1={x:W,y:cy}, S2={x:W,y:H-cy};
+  const p={x:P.x,y:P.y};
+  let dx=p.x-S1.x, dy=p.y-S1.y, dist=Math.hypot(dx,dy);
+  if (dist>W) { p.x=S1.x+dx*W/dist; p.y=S1.y+dy*W/dist; }
+  const D=Math.hypot(W,H);
+  dx=p.x-S2.x; dy=p.y-S2.y; dist=Math.hypot(dx,dy);
+  if (dist>D) { p.x=S2.x+dx*D/dist; p.y=S2.y+dy*D/dist; }
+  const C={x:0,y:cy}, d={x:p.x-C.x, y:p.y-C.y}, L=Math.hypot(d.x,d.y);
+  if (L<0.5) return null;
+  const n={x:d.x/L, y:d.y/L}, M={x:(C.x+p.x)/2, y:(C.y+p.y)/2};
+  const rect=[{x:0,y:0},{x:W,y:0},{x:W,y:H},{x:0,y:H}];
+  return {n, M, L, p, spine:clipPoly(rect,n,M,1), corner:clipPoly(rect,n,M,-1)};
+}
+function reflect(q,g){ const k=2*((q.x-g.M.x)*g.n.x+(q.y-g.M.y)*g.n.y); return {x:q.x-k*g.n.x, y:q.y-k*g.n.y}; }
+function path(poly){ ctx.beginPath(); poly.forEach((q,i)=> i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)); ctx.closePath(); }
+
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+  if (!pdf || !reading()) return;
+  const W = R.w;
+  const g = (anim && !anim.pan) ? geom(anim.P, anim.cy) : null;
+  if (anim && !anim.pan && mode === 'book') {    // the camera follows the turning sheet
+    const t = g ? Math.max(0, Math.min(1, g.p.x/(2*W))) : (anim.mode === 'next' ? 0 : 1);
+    camX = W*easeInOut(t);
+  }
+  rootT(); drawStack();
+  if (!anim || anim.pan) {
+    const s = slotsOf(cur);
+    if (TWO()) { drawSlot(s.left, 0); drawSlot(s.right, W); } else drawSlot(s.main, 0);
+    spine(); drawClipBox();
+    return;
+  }
+  if (TWO()) drawSlot(anim.rightBase, W);
+  if (!g) { drawSlot(anim.leftTop, 0); spine(); return; }
+  drawSlot(anim.leftUnder, 0); spine();
+  if (g.corner.length > 2) {                       // shadow on the page underneath, next to the fold
+    ctx.save(); path(g.corner); ctx.clip();
+    const sw = Math.min(g.L*0.5, W*0.25) + 12;
+    const gr = ctx.createLinearGradient(g.M.x,g.M.y,g.M.x-g.n.x*sw,g.M.y-g.n.y*sw);
+    gr.addColorStop(0,'rgba(0,0,0,0.38)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0,0,W,R.h); ctx.restore();
+  }
+  if (g.spine.length > 2) { ctx.save(); path(g.spine); ctx.clip(); drawSlot(anim.leftTop, 0); spine(); ctx.restore(); }
+  if (g.corner.length > 2) {                       // the lifted flap
+    const flap = g.corner.map(q=>reflect(q,g));
+    ctx.save(); ctx.beginPath(); ctx.rect(0, -R.h, TWO() ? 2*W : W, R.h*3); ctx.clip();
+    ctx.save(); path(flap);
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 18*dpr;
+    ctx.fillStyle = T().paper; ctx.fill(); ctx.restore();
+    ctx.save(); path(flap); ctx.clip();
+    const {n, M} = g, k = 2*(M.x*n.x + M.y*n.y);
+    ctx.transform(1-2*n.x*n.x, -2*n.x*n.y, -2*n.x*n.y, 1-2*n.y*n.y, k*n.x, k*n.y);
+    if (TWO()) {                                   // two-sided book: the back is the next page
+      ctx.save(); ctx.translate(W,0); ctx.scale(-1,1); drawSlot(anim.back, 0); ctx.restore();
+    } else if (anim.leftTop) {                     // one-sided print: blank back with faint show-through
+      const c = cache.get(anim.leftTop);
+      if (c) { ctx.globalAlpha = 0.08; drawImg(c, fitRect(anim.leftTop, 0)); ctx.globalAlpha = 1; }
+    }
+    const gr = ctx.createLinearGradient(M.x,M.y,M.x-n.x*g.L*0.6,M.y-n.y*g.L*0.6);
+    gr.addColorStop(0,'rgba(0,0,0,0.20)'); gr.addColorStop(0.22,T().shine); gr.addColorStop(1,'rgba(0,0,0,0.07)');
+    ctx.fillStyle = gr; ctx.fillRect(-W,-R.h,W*4,R.h*3);
+    ctx.restore(); ctx.restore();
+  }
+}
+function drawClipBox(){
+  const c = annot.clip; if (!c || !c.b) return;
+  const x = Math.min(c.a.x,c.b.x), y = Math.min(c.a.y,c.b.y), w = Math.abs(c.a.x-c.b.x), h = Math.abs(c.a.y-c.b.y);
+  ctx.save(); ctx.fillStyle = 'rgba(201,166,107,0.15)'; ctx.fillRect(x,y,w,h);
+  ctx.setLineDash([6,4]); ctx.strokeStyle = '#c9a66b'; ctx.lineWidth = 2/Z.s; ctx.strokeRect(x,y,w,h); ctx.restore();
+}
+
+/* ================= sound & vibration ================= */
+let actx = null;
+function unlockAudio(){
+  if (!S.sound) return;
+  try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch(_){}
+}
+function feedback(){
+  if (S.vibe && navigator.vibrate) { try { navigator.vibrate(12); } catch(_){} }
+  if (!S.sound || !actx) return;
+  try {
+    const sr = actx.sampleRate, len = Math.floor(sr*0.35), buf = actx.createBuffer(1,len,sr), d = buf.getChannelData(0);
+    for (let i=0;i<len;i++){ const t=i/len; d[i]=(Math.random()*2-1)*Math.min(1,t*30)*Math.pow(1-t,2.2)*(0.55+0.45*Math.sin(t*Math.PI*6)); }
+    const src = actx.createBufferSource(); src.buffer = buf;
+    const f = actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2200; f.Q.value=0.6;
+    const g = actx.createGain(); g.gain.value = 0.5;
+    src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
+  } catch(_){}
+}
+
+/* ================= page-turn animation ================= */
+const easeOut = t => 1-Math.pow(1-t,3);
+const easeInOut = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+function makeAnim(dir, cy){
+  const W = R.w;
+  if (mode === 'book') {
+    const sv = Math.ceil((cur+off())/2), right = isRightPage(cur);
+    if (dir === 'next') {
+      if (cur >= nPages) return null;
+      if (right) return {pan:true, mode:dir, from:W, to:0};          // right page → left page: eyes move across
+      const a = spreadSlots(sv), b = spreadSlots(sv+1);               // left page → turn the sheet
+      return {mode:dir, cy, P:{x:0,y:cy}, leftTop:a.left, leftUnder:b.left, rightBase:a.right, back:b.right};
+    }
+    if (cur <= 1) return null;
+    if (!right) return {pan:true, mode:dir, from:0, to:W};
+    const a = spreadSlots(sv-1), b = spreadSlots(sv);
+    return {mode:dir, cy, P:{x:2*W,y:cy}, leftTop:a.left, leftUnder:b.left, rightBase:a.right, back:b.right};
+  }
+  if (dir === 'next') {
+    if (cur >= nViews) return null;
+    const a = slotsOf(cur), b = slotsOf(cur+1);
+    return mode === 'spread'
+      ? {mode:dir, cy, P:{x:0,y:cy}, leftTop:a.left, leftUnder:b.left, rightBase:a.right, back:b.right}
+      : {mode:dir, cy, P:{x:0,y:cy}, leftTop:a.main, leftUnder:b.main};
+  }
+  if (cur <= 1) return null;
+  const a = slotsOf(cur-1), b = slotsOf(cur);
+  return mode === 'spread'
+    ? {mode:dir, cy, P:{x:2*W,y:cy}, leftTop:a.left, leftUnder:b.left, rightBase:a.right, back:b.right}
+    : {mode:dir, cy, P:{x:2*W,y:cy}, leftTop:a.main, leftUnder:b.main};
+}
+function animateTo(from,to,dur,arc,ease,done){
+  busy = true; const t0 = performance.now();
+  const lift = (anim.cy===0 ? 1 : -1) * R.h * 0.14;
+  function step(now){
+    const t = Math.min(1,(now-t0)/dur), e = ease(t);
+    anim.P = {x:from.x+(to.x-from.x)*e, y:from.y+(to.y-from.y)*e + (arc?Math.sin(Math.PI*e)*lift:0)};
+    draw();
+    if (t<1) requestAnimationFrame(step); else { busy=false; done(); }
+  }
+  requestAnimationFrame(step);
+}
+function animatePan(to, dur, done){
+  busy = true; const t0 = performance.now(), from = camX;
+  function step(now){
+    const t = Math.min(1,(now-t0)/dur);
+    camX = from + (to-from)*easeInOut(t); draw();
+    if (t < 1) requestAnimationFrame(step); else { busy = false; done(); }
+  }
+  requestAnimationFrame(step);
+}
+function turn(dir){
+  if (busy || !pdf || anim || Z.s > 1.001 || annot.on) return;
+  const a = makeAnim(dir, R.h);
+  if (!a) { toast(dir === 'next' ? 'Last page' : 'First page'); return; }
+  feedback(); setBars(false);
+  anim = a;
+  if (a.pan) { animatePan(a.to, 480, ()=>{ anim = null; setView(dir === 'next' ? cur+1 : cur-1); }); return; }
+  const A = {x:0,y:R.h}, B = {x:2*R.w,y:R.h};
+  const from = dir === 'next' ? A : B, to = dir === 'next' ? B : A;
+  animateTo(from, to, 650, true, easeInOut, ()=>{ anim = null; setView(dir === 'next' ? cur+1 : cur-1); });
+}
+function finish(complete, from){
+  if (anim.pan) {
+    const dir = anim.mode;
+    animatePan(complete ? anim.to : anim.from, complete ? 300 : 220, ()=>{
+      anim = null;
+      if (complete) setView(dir === 'next' ? cur+1 : cur-1); else { setCam(); draw(); autoSchedule(); }
+    });
+    return;
+  }
+  const toFar = (anim.mode === 'next') === complete;
+  const target = toFar ? {x:2*R.w, y:anim.cy} : {x:0, y:anim.cy};
+  const dir = anim.mode;
+  if (complete) feedback();
+  animateTo(from, target, complete?380:260, false, easeOut, ()=>{
+    anim = null;
+    if (complete) setView(dir === 'next' ? cur+1 : cur-1); else { draw(); autoSchedule(); }
+  });
+}
+
+/* ================= zoom ================= */
+function clampZ(){
+  const vw = innerWidth, vh = innerHeight, W = BW()*Z.s, H = R.h*Z.s;
+  Z.tx = W > vw ? Math.min(-R.x, Math.max(vw-R.x-W, Z.tx)) : (vw-W)/2 - R.x;
+  Z.ty = H > vh ? Math.min(-R.y, Math.max(vh-R.y-H, Z.ty)) : (vh-H)/2 - R.y;
+}
+function zoomAround(x, y, ns){
+  const px = (x-R.x-Z.tx)/Z.s, py = (y-R.y-Z.ty)/Z.s;
+  Z.s = ns; Z.tx = x-R.x-px*ns; Z.ty = y-R.y-py*ns; clampZ();
+}
+function resetZoom(){ Z = {s:1, tx:0, ty:0}; zoomHi.clear(); draw(); }
+let hiT, zoomHinted = false;
+function hiRes(){
+  clearTimeout(hiT);
+  hiT = setTimeout(async ()=>{
+    if (Z.s <= 1.001 || !pdf) return;
+    const v = cur, g = gen;
+    for (const k of keysOf(v)) {
+      try { const c = await renderRegion(k, Math.min(R.w*dpr*Z.s, 4096)); if (g===gen && v===cur && Z.s>1.001) { zoomHi.set(k, c); draw(); } } catch(_){}
+    }
+  }, 150);
+  if (!zoomHinted && !annot.on) { zoomHinted = true; toast('Double-tap to zoom out'); }
+}
+
+/* ================= touch / mouse input ================= */
+const pts = new Map();
+let ptr = null, pinch = null, pan = null, lastTap = null, tapTimer = null, annPtr = null;
+const evX = e => LTR() ? innerWidth - e.clientX : e.clientX;     // logical x (mirrored for LTR books)
+const toBook = (x, y) => ({x:(x-R.x-Z.tx)/Z.s + camX, y:(y-R.y-Z.ty)/Z.s});
+
+cv.addEventListener('pointerdown', e=>{
+  if (!pdf) return;
+  unlockAudio();
+  try { cv.setPointerCapture(e.pointerId); } catch(_){}
+  pts.set(e.pointerId, {x:evX(e), y:e.clientY});
+  if (pts.size === 2) {
+    if (ptr && ptr.dragging && anim && !busy) { const g = anim.pan ? null : geom(anim.P, anim.cy); finish(false, g ? g.p : anim.P); }
+    ptr = null; pan = null; lastTap = null; clearTimeout(tapTimer);
+    if (annPtr) { annot.drawing = null; annot.clip = null; annot.erasing = null; annPtr = null; }
+    if (busy || anim) { pinch = null; return; }
+    const [a,b] = [...pts.values()];
+    pinch = {d0:Math.hypot(a.x-b.x,a.y-b.y)||1, cx:(a.x+b.x)/2, cy:(a.y+b.y)/2, from:{s:Z.s, tx:Z.tx, ty:Z.ty}};
+    return;
+  }
+  if (pts.size > 2 || busy) return;
+  if (annot.on) { annPtr = e.pointerId; annDown(toBook(evX(e), e.clientY)); return; }
+  if (Z.s > 1.001) { pan = {id:e.pointerId, sx:evX(e), sy:e.clientY, tx0:Z.tx, ty0:Z.ty, moved:false}; return; }
+  ptr = {id:e.pointerId, sx:evX(e), sy:e.clientY, dragging:false, lastX:evX(e), lastT:performance.now(), vx:0};
+  stopAutoTimerOnly();
+});
+cv.addEventListener('pointermove', e=>{
+  if (!pts.has(e.pointerId)) return;
+  const x = evX(e), y = e.clientY;
+  pts.set(e.pointerId, {x, y});
+  if (pinch) {
+    if (pts.size < 2) return;
+    const [a,b] = [...pts.values()];
+    const ns = Math.max(1, Math.min(5, pinch.from.s * Math.hypot(a.x-b.x,a.y-b.y) / pinch.d0));
+    const px = (pinch.cx-R.x-pinch.from.tx)/pinch.from.s, py = (pinch.cy-R.y-pinch.from.ty)/pinch.from.s;
+    const cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
+    Z.s = ns; Z.tx = cx-R.x-px*ns; Z.ty = cy-R.y-py*ns; clampZ();
+    setBars(false); draw(); return;
+  }
+  if (annPtr === e.pointerId) { annMove(toBook(x, y)); return; }
+  if (pan && e.pointerId === pan.id) {
+    const dx = x-pan.sx, dy = y-pan.sy;
+    if (Math.hypot(dx,dy) > 8) pan.moved = true;
+    Z.tx = pan.tx0+dx; Z.ty = pan.ty0+dy; clampZ(); draw(); return;
+  }
+  if (!ptr || e.pointerId !== ptr.id) return;
+  const dx = x-ptr.sx, dy = y-ptr.sy, now = performance.now();
+  const dt = Math.max(1, now-ptr.lastT);
+  ptr.vx = 0.6*ptr.vx + 0.4*((x-ptr.lastX)/dt); ptr.lastX = x; ptr.lastT = now;
+  if (!ptr.dragging) {
+    if (Math.hypot(dx,dy) < 10) return;
+    if (Math.abs(dx) < Math.abs(dy)) { ptr = null; autoSchedule(); return; }
+    const cy = (ptr.sy - R.y) < R.h/2 ? 0 : R.h;
+    const a = makeAnim(dx > 0 ? 'next' : 'prev', cy);
+    if (!a) { ptr = null; toast(dx > 0 ? 'Last page' : 'First page'); autoSchedule(); return; }
+    anim = a; ptr.dragging = true; ptr.base = a.pan ? {cam:camX} : {x:anim.P.x, y:anim.P.y};
+    lastTap = null; setBars(false);
+  }
+  if (anim.pan) camX = Math.max(0, Math.min(R.w, ptr.base.cam - dx));
+  else anim.P = {x:ptr.base.x + dx*1.2, y:ptr.base.y + dy};
+  draw();
+});
+function up(e){
+  if (!pts.has(e.pointerId)) return;
+  pts.delete(e.pointerId);
+  if (pinch) {
+    if (pts.size < 2) { pinch = null; if (Z.s < 1.08) resetZoom(); else hiRes(); }
+    ptr = null; pan = null; return;
+  }
+  if (annPtr === e.pointerId) { annPtr = null; annUp(e.type === 'pointercancel'); return; }
+  if (pan && e.pointerId === pan.id) {
+    const moved = pan.moved; pan = null;
+    if (!moved && e.type !== 'pointercancel') handleTap(evX(e), e.clientY);
+    return;
+  }
+  if (!ptr || e.pointerId !== ptr.id) return;
+  const p = ptr; ptr = null;
+  if (!p.dragging) { if (e.type !== 'pointercancel') handleTap(evX(e), e.clientY); autoSchedule(); return; }
+  if (anim.pan) {
+    const moved = Math.abs(camX - anim.from)/R.w, v = anim.mode === 'next' ? p.vx : -p.vx;
+    finish(e.type !== 'pointercancel' && (v > 0.3 || (v > -0.3 && moved > 0.25)));
+    return;
+  }
+  const g = geom(anim.P, anim.cy), pt = g ? g.p : anim.P;
+  const complete = anim.mode === 'next'
+    ? (p.vx > 0.3 || (p.vx > -0.3 && pt.x > R.w*0.55))
+    : (p.vx < -0.3 || (p.vx < 0.3 && pt.x < R.w*1.45));
+  finish(e.type === 'pointercancel' ? false : complete, pt);
+}
+cv.addEventListener('pointerup', up);
+cv.addEventListener('pointercancel', up);
+function handleTap(x, y){
+  const now = performance.now();
+  if (lastTap && now-lastTap.t < 320 && Math.hypot(x-lastTap.x, y-lastTap.y) < 40) {
+    clearTimeout(tapTimer); lastTap = null;
+    if (Z.s > 1.001) resetZoom();
+    else { zoomAround(x, y, mode === 'spread' ? 2 : 2.5); setBars(false); draw(); hiRes(); }
+    return;
+  }
+  const zoomed = Z.s > 1.001, f = (x - R.x)/BW();
+  if (!zoomed && f < 0.3) { lastTap = null; turn('next'); return; }
+  if (!zoomed && f > 0.7) { lastTap = null; turn('prev'); return; }
+  lastTap = {t:now, x, y};
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(()=>{ lastTap = null; setBars(document.body.classList.contains('hide-bars')); }, 320);
+}
+addEventListener('keydown', e=>{
+  if (!reading() || $('dlg').classList.contains('on')) return;
+  if (e.key === 'Escape') { if (anySheet()) closeSheets(); else if (annot.on) setAnnot(false); else if (Z.s>1.001) resetZoom(); return; }
+  if (anySheet() || e.target.tagName === 'INPUT' || annot.on) return;
+  unlockAudio();
+  const fwd = LTR() ? 'ArrowRight' : 'ArrowLeft', back = LTR() ? 'ArrowLeft' : 'ArrowRight';
+  if (e.key === fwd || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); turn('next'); }
+  else if (e.key === back || e.key === 'PageUp') { e.preventDefault(); turn('prev'); }
+});
+let rzT;
+addEventListener('resize', ()=>{ clearTimeout(rzT); rzT = setTimeout(()=>{ if (!anim && reading()) relayout(); }, 120); });
+
+/* ================= annotations: highlight, pen, eraser, quote clips ================= */
+function viewRects(){
+  const s = slotsOf(cur), out = [];
+  if (mode === 'spread') { if (s.left) out.push(fitRect(s.left, 0)); if (s.right) out.push(fitRect(s.right, R.w)); }
+  else if (mode === 'book') { if (isRightPage(cur)) { if (s.right) out.push(fitRect(s.right, R.w)); } else if (s.left) out.push(fitRect(s.left, 0)); }
+  else if (s.main) out.push(fitRect(s.main, 0));
+  return out;
+}
+function rectAt(b){ return viewRects().find(rc => b.x >= rc.x && b.x <= rc.x+rc.w && b.y >= rc.y && b.y <= rc.y+rc.h) || null; }
+function setAnnot(on){
+  annot.on = on; annot.drawing = null; annot.clip = null; annot.hist = [];
+  document.body.classList.toggle('annot', on);
+  $('annHint').textContent = annot.tool === 'clip' ? 'Drag a box around the text to save it as a quote' : 'Draw on the page · two fingers to zoom';
+  if (on) { setBars(false); stopAutoTimerOnly(); } else { autoSchedule(); }
+  draw();
+}
+$('annBtn').onclick = ()=>setAnnot(true);
+$('annDone').onclick = ()=>setAnnot(false);
+document.querySelectorAll('#annBar [data-tool]').forEach(b=>b.onclick = ()=>{
+  annot.tool = b.dataset.tool;
+  document.querySelectorAll('#annBar [data-tool]').forEach(x=>x.classList.toggle('on', x===b));
+  $('annHint').textContent = annot.tool === 'clip' ? 'Drag a box around the text to save it as a quote'
+    : annot.tool === 'erase' ? 'Rub over a highlight or drawing to erase it' : 'Draw on the page · two fingers to zoom';
+});
+$('annUndo').onclick = ()=>{
+  const op = annot.hist.pop(); if (!op) { toast('Nothing to undo'); return; }
+  curMeta.ann = curMeta.ann || {};
+  const list = curMeta.ann[op.page] = curMeta.ann[op.page] || [];
+  if (op.op === 'add') { const i = list.indexOf(op.s); if (i >= 0) list.splice(i,1); }
+  else list.splice(Math.min(op.i, list.length), 0, op.s);
+  saveMeta(); draw();
+};
+function annDown(b){
+  const rc = rectAt(b); if (!rc) return;
+  if (annot.tool === 'hl' || annot.tool === 'pen') { annot.rc = rc; annot.drawing = {t:annot.tool, page:rc.page, pts:[toFrac(rc, b.x, b.y)]}; draw(); }
+  else if (annot.tool === 'erase') { annot.erasing = rc; eraseAt(rc, b); }
+  else if (annot.tool === 'clip') { annot.clip = {rc, a:b, b:b}; draw(); }
+}
+function annMove(b){
+  if (annot.drawing) {
+    const rc = annot.rc, q = toFrac(rc, b.x, b.y), last = annot.drawing.pts[annot.drawing.pts.length-1];
+    const dpx = Math.hypot((q[0]-last[0])*rc.w/(rc.r.x1-rc.r.x0), (q[1]-last[1])*rc.h/(rc.r.y1-rc.r.y0));
+    if (dpx > 1.5) { annot.drawing.pts.push(q); draw(); }
+  } else if (annot.erasing) eraseAt(annot.erasing, b);
+  else if (annot.clip) {
+    const rc = annot.clip.rc;
+    annot.clip.b = {x:Math.max(rc.x, Math.min(rc.x+rc.w, b.x)), y:Math.max(rc.y, Math.min(rc.y+rc.h, b.y))};
+    draw();
+  }
+}
+function annUp(cancel){
+  if (annot.drawing) {
+    const s = annot.drawing; annot.drawing = null;
+    if (!cancel && s.pts.length) {
+      curMeta.ann = curMeta.ann || {};
+      (curMeta.ann[s.page] = curMeta.ann[s.page] || []).push(s);
+      annot.hist.push({op:'add', page:s.page, s}); saveMeta();
+    }
+    draw();
+  } else if (annot.erasing) { annot.erasing = null; }
+  else if (annot.clip) { const c = annot.clip; annot.clip = null; draw(); if (!cancel) saveClip(c); }
+}
+function eraseAt(rc, b){
+  const list = strokeList(rc.page); if (!list.length) return;
+  const f = toFrac(rc, b.x, b.y), ar = pageW/pageH, thr = 0.022;
+  for (let i=list.length-1; i>=0; i--) {
+    if (list[i].pts.some(q => Math.hypot((q[0]-f[0])*ar, q[1]-f[1]) < thr)) {
+      const s = list.splice(i,1)[0]; annot.hist.push({op:'del', page:rc.page, s, i}); saveMeta(); draw();
+    }
+  }
+}
+async function saveClip(c){
+  const rc = c.rc, A = toFrac(rc, c.a.x, c.a.y), B = toFrac(rc, c.b.x, c.b.y);
+  const fx0 = Math.min(A[0],B[0]), fx1 = Math.max(A[0],B[0]), fy0 = Math.min(A[1],B[1]), fy1 = Math.max(A[1],B[1]);
+  if ((fx1-fx0) < 0.03 || (fy1-fy0) < 0.01) { toast('Drag a bigger box to save a quote'); return; }
+  try {
+    const page = await pdf.getPage(rc.page), v1 = page.getViewport({scale:1});
+    const scale = Math.min(1400/((fx1-fx0)*v1.width), 3);
+    const vp = page.getViewport({scale, offsetX:-fx0*v1.width*scale, offsetY:-fy0*v1.height*scale});
+    const cnv = document.createElement('canvas');
+    cnv.width = Math.round((fx1-fx0)*v1.width*scale); cnv.height = Math.round((fy1-fy0)*v1.height*scale);
+    const cx = cnv.getContext('2d', {willReadFrequently:true}); cx.fillStyle = '#fff'; cx.fillRect(0,0,cnv.width,cnv.height);
+    await page.render({canvasContext:cx, viewport:vp}).promise;
+    if (curMeta.enhance) enhanceImg(cnv, cx);
+    const q = {book:curMeta.id || 'tmp', page:rc.page, img:cnv.toDataURL('image/jpeg', 0.85), added:Date.now()};
+    await dbReq('quotes','readwrite',os=>os.add(q));
+    toast('Saved to Quotes');
+  } catch (e) { console.error(e); toast('Could not save this quote'); }
+}
+
+/* ================= reading statistics, goal & streak ================= */
+let ST = {days:{}};
+try { const o = JSON.parse(localStorage.getItem('rtl-stats')); if (o) { if (o.days) ST = o; else if (o.day) ST = {days:{[o.day]:o.pages}}; } } catch(_){}
+const dkey = d => d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+const pagesToday = () => ST.days[dkey(new Date())] || 0;
+function streak(){
+  const d = new Date(); let n = 0;
+  if ((ST.days[dkey(d)]||0) < S.goal) d.setDate(d.getDate()-1);
+  while ((ST.days[dkey(d)]||0) >= S.goal) { n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+let lastPageT = 0;
+function trackStats(oldP, newP){
+  const now = Date.now(), diff = newP - oldP;
+  if (diff > 0 && diff <= 2) {
+    const k = dkey(new Date()), before = ST.days[k] || 0;
+    ST.days[k] = before + diff;
+    if (before < S.goal && ST.days[k] >= S.goal) setTimeout(()=>toast('🎉 Daily goal reached — ' + S.goal + ' pages! Streak: ' + streak() + ' day' + (streak()===1?'':'s')), 700);
+    const dt = (now-lastPageT)/1000/diff;
+    if (lastPageT && dt >= 3 && dt <= 600 && curMeta) curMeta.avgSec = curMeta.avgSec ? curMeta.avgSec*0.8 + dt*0.2 : dt;
+    const keys = Object.keys(ST.days); if (keys.length > 120) keys.slice(0, keys.length-120).forEach(k=>delete ST.days[k]);
+  }
+  lastPageT = now;
+  try { localStorage.setItem('rtl-stats', JSON.stringify(ST)); } catch(_){}
+}
+function fmtDur(sec){
+  const m = Math.round(sec/60);
+  if (m < 1) return '<1 min';
+  if (m < 60) return '~' + m + ' min';
+  const h = Math.floor(m/60), r = m%60;
+  return '~' + h + 'h' + (r ? ' ' + r + 'm' : '');
+}
+
+/* ================= UI ================= */
+function setBars(show){ document.body.classList.toggle('hide-bars', !show); }
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1900); }
+const bookName = b => (b.title || b.name.replace(/\.pdf$/i,''));
+function updateUI(){
+  if (!pdf) return;
+  const p = realPage(cur);
+  let label;
+  if (mode === 'spread') { const ps = keysOf(cur).map(k=>+k.split(':')[0]).sort((a,b)=>a-b); label = (ps.length > 1 ? 'Pages ' + ps[0] + '–' + ps[1] : 'Page ' + ps[0]) + ' of ' + nPages; }
+  else label = 'Page ' + p + (mode === 'half' ? (cur%2 ? ' ▴' : ' ▾') : '') + ' of ' + nPages;
+  $('count').textContent = label;
+  $('slider').value = p; $('slider').dir = LTR() ? 'ltr' : 'rtl';
+  $('bmBtn').classList.toggle('on', isBookmarked(p));
+  const pt = pagesToday(), sk = streak(), parts = ['Today ' + pt + '/' + S.goal];
+  if (sk) parts.push('🔥' + sk);
+  if (curMeta && curMeta.avgSec) parts.push(fmtDur((nPages-p)*curMeta.avgSec) + ' left');
+  $('stat').textContent = parts.join(' · ');
+}
+function setView(v, quiet){
+  const oldP = realPage(cur);
+  cur = Math.max(1, Math.min(nViews, v)); setCam();
+  const p = realPage(cur);
+  Z = {s:1, tx:0, ty:0}; zoomHi.clear();
+  if (!quiet && p !== oldP) trackStats(oldP, p);
+  if (curMeta && p >= nPages - (mode === 'spread' ? 1 : 0) && !curMeta.finished) { curMeta.finished = true; if (!quiet) toast('📗 Book finished!'); }
+  updateUI(); saveMeta(); prefetch(); draw(); autoSchedule();
+}
+function goToPage(p){ setView(firstView(Math.max(1, Math.min(nPages, p)))); }
+function jumpTo(p){
+  const from = realPage(cur);
+  if (Math.abs(p - from) > 2) returnPage = from;
+  goToPage(p); updateBackPill();
+}
+function updateBackPill(){
+  const on = reading() && returnPage !== null && returnPage !== realPage(cur);
+  $('backPill').classList.toggle('on', on);
+  if (on) $('backTxt').textContent = '↩ Back to page ' + returnPage;
+}
+$('backPill').onclick = e=>{
+  if (e.target.id === 'backX') { returnPage = null; updateBackPill(); return; }
+  const p = returnPage; returnPage = realPage(cur); goToPage(p); updateBackPill();
+};
+$('slider').addEventListener('input', e=>{ $('count').textContent = 'Page ' + e.target.value + ' of ' + nPages; });
+$('slider').addEventListener('change', e=>{ if (!busy) jumpTo(+e.target.value); });
+$('count').onclick = async ()=>{
+  const v = await ask({msg:'Go to page (1 – ' + nPages + ')', input:{type:'number', value:realPage(cur), min:1, max:nPages}, ok:'Go'});
+  if (v === null) return;
+  const n = parseInt(v, 10);
+  if (n >= 1 && n <= nPages) jumpTo(n); else toast('Enter a number from 1 to ' + nPages);
+};
+
+function ask({msg, input, ok='OK', danger=false}){
+  return new Promise(res=>{
+    $('dmsg').textContent = msg;
+    const inp = $('dinp');
+    if (input) {
+      inp.style.display = 'block'; inp.type = input.type || 'text'; inp.value = input.value ?? '';
+      inp.placeholder = input.placeholder || ''; inp.min = input.min ?? ''; inp.max = input.max ?? '';
+      inp.inputMode = input.type === 'number' ? 'numeric' : 'text';
+    } else inp.style.display = 'none';
+    $('dyes').textContent = ok; $('dyes').className = 'btn ' + (danger ? 'danger' : 'primary');
+    $('dlg').classList.add('on');
+    if (input) setTimeout(()=>{ inp.focus(); if (inp.select) inp.select(); }, 60);
+    const done = v => { $('dlg').classList.remove('on'); $('dno').onclick = null; $('dform').onsubmit = null; res(v); };
+    $('dno').onclick = ()=>done(null);
+    $('dform').onsubmit = e=>{ e.preventDefault(); done(input ? inp.value : true); };
+  });
+}
+function choose(title, opts){
+  return new Promise(res=>{
+    closeSheets();
+    $('mtitle').textContent = title;
+    const box = $('mopts'); box.innerHTML = '';
+    const close = v => { $('menu').classList.remove('open'); $('scrim').classList.remove('on'); $('scrim').onclick = closeSheets; res(v); };
+    opts.forEach((o,i)=>{
+      const b = document.createElement('button'); b.className = 'item' + (o.danger ? ' dangerTxt' : ''); b.dir = 'auto';
+      b.textContent = o.label; b.onclick = ()=>close(i); box.appendChild(b);
+    });
+    $('menu').classList.add('open'); $('scrim').classList.add('on');
+    $('scrim').onclick = ()=>close(null);
+  });
+}
+
+/* ---------- sheets ---------- */
+function anySheet(){ return ['settings','panel','menu'].some(i=>$(i).classList.contains('open')); }
+function openSheet(id){ closeSheets(); $(id).classList.add('open'); $('scrim').classList.add('on'); stopAutoTimerOnly(); }
+function closeSheets(){ ['settings','panel','menu'].forEach(i=>$(i).classList.remove('open')); $('scrim').classList.remove('on'); $('scrim').onclick = closeSheets; if (reading()) autoSchedule(); }
+$('scrim').onclick = closeSheets;
+$('setBtn').onclick = ()=>{ syncSettingsUI(); openSheet('settings'); };
+$('navBtn').onclick = ()=>{ renderToc(); renderBm(); openSheet('panel'); const t = document.querySelector('.tabs .on').dataset.t; if (t === 'pages') renderPages(); if (t === 'quotes') renderQuotes(); };
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick = ()=>showTab(b.dataset.t));
+function showTab(t){
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
+  document.querySelectorAll('.pv').forEach(x=>x.classList.toggle('on', x.id==='pv-'+t));
+  if (t === 'find') setTimeout(()=>$('findIn').focus(), 250);
+  if (t === 'pages') renderPages();
+  if (t === 'quotes') renderQuotes();
+}
+
+/* ---------- settings ---------- */
+function syncSettingsUI(){
+  document.querySelectorAll('#themeSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.theme));
+  document.querySelectorAll('#dirSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v===(LTR()?'ltr':'rtl')));
+  $('optEnh').checked = !!(curMeta && curMeta.enhance);
+  document.querySelectorAll('#sideSeg button').forEach(b=>b.classList.toggle('on', +b.dataset.v === off()));
+  if (pdf) {
+    const p = realPage(cur), r = isRightPage(p);
+    $('sideNow').textContent = 'Page ' + p + ' is now a ' + (r ? 'right' : 'left') + ' page';
+    $('sideFlip').textContent = 'Make page ' + p + ' a ' + (r ? 'left' : 'right') + ' page';
+  }
+  $('bright').value = S.bright; $('warm').value = S.warm;
+  $('optCrop').checked = S.crop; $('optBook').checked = S.bookView; $('optHalf').checked = S.half; $('optSpread').checked = S.spread; $('optAwake').checked = S.awake;
+  $('optSound').checked = S.sound; $('optVibe').checked = S.vibe; $('optAuto').checked = autoOn;
+  $('autoSec').value = S.autoSec; $('autoVal').textContent = S.autoSec + ' s';
+  $('goal').value = S.goal; $('goalVal').textContent = S.goal + ' pages';
+}
+function applyLight(){
+  $('dim').style.opacity = ((1-S.bright)*0.85).toFixed(3);
+  $('tint').style.opacity = (S.warm*0.4).toFixed(3);
+  document.body.dataset.theme = S.theme;
+}
+document.querySelectorAll('#themeSeg button').forEach(b=>b.onclick = ()=>{
+  S.theme = b.dataset.v; saveS(); syncSettingsUI(); applyLight(); invalidate(); prefetch(); draw();
+});
+document.querySelectorAll('#dirSeg button').forEach(b=>b.onclick = ()=>{
+  if (!curMeta) return;
+  curMeta.dir = b.dataset.v; saveMeta(); syncSettingsUI(); resetZoom(); updateUI(); draw();
+  toast(b.dataset.v === 'ltr' ? 'Reading left → right' : 'Reading right → left');
+});
+function setOffset(v){
+  if (!curMeta || off() === v) return;
+  const p = realPage(cur);
+  curMeta.off = v; saveMeta(); invalidate();
+  computeMode(); nViews = countViews(); computeAspect(); layout();
+  cur = Math.max(1, Math.min(nViews, firstView(p))); setCam(); updateUI(); prefetch(); draw(); syncSettingsUI();
+  toast('Page ' + p + ' is now a ' + (isRightPage(p) ? 'right' : 'left') + ' page');
+}
+document.querySelectorAll('#sideSeg button').forEach(b=>b.onclick = ()=>setOffset(+b.dataset.v));
+$('sideFlip').onclick = ()=>setOffset(off() ? 0 : 1);
+$('optEnh').onchange = e=>{ if (!curMeta) return; curMeta.enhance = e.target.checked; saveMeta(); invalidate(); prefetch(); draw(); };
+$('bright').oninput = e=>{ S.bright = +e.target.value; applyLight(); saveS(); };
+$('warm').oninput = e=>{ S.warm = +e.target.value; applyLight(); saveS(); };
+$('optCrop').onchange = async e=>{
+  S.crop = e.target.checked; saveS();
+  if (S.crop && curMeta && !curMeta.crop && pdf) {
+    $('loading').textContent = 'Measuring margins…'; $('loading').classList.add('on');
+    try { curMeta.crop = await computeCrop(pdf); } catch(_){ curMeta.crop = FULL; }
+    $('loading').classList.remove('on'); saveMeta();
+  }
+  invalidate(); relayout();
+};
+$('optHalf').onchange = e=>{ S.half = e.target.checked; saveS(); invalidate(); relayout(); if (S.half && mode === 'spread') toast('Half-page mode works in portrait'); };
+$('optBook').onchange = e=>{ S.bookView = e.target.checked; saveS(); invalidate(); relayout(); };
+$('optSpread').onchange = e=>{ S.spread = e.target.checked; saveS(); invalidate(); relayout(); };
+$('optAwake').onchange = e=>{ S.awake = e.target.checked; saveS(); updateWake(); };
+$('optSound').onchange = e=>{ S.sound = e.target.checked; saveS(); if (S.sound) { unlockAudio(); feedback(); } };
+$('optVibe').onchange = e=>{ S.vibe = e.target.checked; saveS(); if (S.vibe) feedback(); };
+$('optAuto').onchange = e=>{ autoOn = e.target.checked; if (autoOn) unlockAudio(); updateAutoPill(); };
+$('autoSec').oninput = e=>{ S.autoSec = +e.target.value; $('autoVal').textContent = S.autoSec + ' s'; saveS(); updateAutoPill(); };
+$('goal').oninput = e=>{ S.goal = +e.target.value; $('goalVal').textContent = S.goal + ' pages'; saveS(); updateUI(); };
+
+/* ---------- auto page-turn ---------- */
+let autoOn = false, autoT = null;
+function stopAutoTimerOnly(){ clearTimeout(autoT); const b = $('autoBar'); b.style.transition = 'none'; b.style.width = '0'; }
+function autoSchedule(){
+  stopAutoTimerOnly();
+  if (!autoOn || !reading() || anySheet() || annot.on) return;
+  const b = $('autoBar'); void b.offsetWidth;
+  b.style.transition = 'width ' + S.autoSec + 's linear'; b.style.width = '100%';
+  autoT = setTimeout(autoTick, S.autoSec*1000);
+}
+function autoTick(){
+  if (!autoOn) return;
+  if (anySheet() || annot.on || Z.s > 1.001 || busy || anim || $('dlg').classList.contains('on')) { autoSchedule(); return; }
+  if (cur >= nViews) { autoOn = false; updateAutoPill(); toast('Reached the end of the book'); return; }
+  turn('next');
+}
+function updateAutoPill(){
+  $('autoPill').classList.toggle('on', autoOn && reading());
+  $('autoBar').classList.toggle('on', autoOn && reading());
+  $('autoTxt').textContent = 'Auto · every ' + S.autoSec + ' s';
+  $('autoNote').textContent = autoOn ? 'On — tap the Auto button on screen to stop' : 'Turns to the next page by itself';
+  if (autoOn) autoSchedule(); else stopAutoTimerOnly();
+}
+$('autoPill').onclick = ()=>{ autoOn = false; updateAutoPill(); toast('Auto page-turn stopped'); };
+
+/* ---------- keep screen awake ---------- */
+let wl = null;
+async function updateWake(){
+  const want = S.awake && reading() && !document.hidden;
+  if (want && !wl) {
+    try {
+      if (!navigator.wakeLock) throw 0;
+      wl = await navigator.wakeLock.request('screen');
+      wl.addEventListener('release', ()=>{ wl = null; });
+      $('awakeNote').textContent = 'While a book is open';
+    } catch(_) { $('awakeNote').textContent = 'Not supported in this browser'; }
+  } else if (!want && wl) { try { await wl.release(); } catch(_){} wl = null; }
+}
+document.addEventListener('visibilitychange', updateWake);
+
+/* ---------- full screen ---------- */
+$('fsBtn').onclick = ()=>{
+  const d = document, el = d.documentElement;
+  try {
+    if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else {
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!fn) throw 0;
+      const r = fn.call(el);
+      if (r && r.catch) r.catch(()=>toast('Full screen isn’t available here'));
+    }
+  } catch(_) { toast('Full screen isn’t available in this browser'); }
+};
+
+/* ---------- contents ---------- */
+function renderToc(){
+  const box = $('pv-toc'); box.innerHTML = '';
+  if (!outline || !outline.length) { box.innerHTML = '<p class="muted">This book has no built-in table of contents. Try the Pages tab, or use Bookmarks to mark chapters yourself.</p>'; return; }
+  const add = (items, depth)=>{
+    for (const it of items) {
+      const b = document.createElement('button'); b.className = 'item'; b.dir = 'auto';
+      b.style.paddingInlineStart = (14 + depth*18) + 'px';
+      b.textContent = it.title || '(untitled)';
+      b.onclick = ()=>gotoDest(it.dest);
+      box.appendChild(b);
+      if (it.items && it.items.length) add(it.items, depth+1);
+    }
+  };
+  add(outline, 0);
+}
+async function gotoDest(dest){
+  try {
+    let d = dest; if (typeof d === 'string') d = await pdf.getDestination(d);
+    if (!d) return;
+    const ref = d[0], idx = typeof ref === 'number' ? ref : await pdf.getPageIndex(ref);
+    closeSheets(); jumpTo(idx+1);
+  } catch(_) { toast('Could not open this section'); }
+}
+
+/* ---------- page thumbnails ---------- */
+let thumbObs = null, thumbQ = [], thumbBusy = false;
+function renderPages(){
+  const box = $('pv-pages'); box.innerHTML = ''; box.dir = LTR() ? 'ltr' : 'rtl';
+  const grid = document.createElement('div'); grid.className = 'thumbs';
+  const p0 = realPage(cur);
+  for (let p=1; p<=nPages; p++) {
+    const b = document.createElement('button'); b.className = 'th' + ((p===p0 || (mode==='spread' && p===p0+1)) ? ' cur' : ''); b.dataset.p = p;
+    b.innerHTML = '<div class="tbox"></div><span>' + p + '</span>';
+    if (thumbCache.has(p)) b.querySelector('.tbox').innerHTML = '<img alt="" src="' + thumbCache.get(p) + '">';
+    b.onclick = ()=>{ closeSheets(); jumpTo(p); };
+    grid.appendChild(b);
+  }
+  box.appendChild(grid);
+  if (thumbObs) thumbObs.disconnect();
+  thumbQ = [];
+  thumbObs = new IntersectionObserver(ents=>{
+    for (const en of ents) if (en.isIntersecting) {
+      thumbObs.unobserve(en.target);
+      const p = +en.target.dataset.p;
+      if (!thumbCache.has(p)) { thumbQ.push({p, el:en.target.querySelector('.tbox')}); pumpThumbs(); }
+    }
+  }, {root:box, rootMargin:'300px'});
+  grid.querySelectorAll('.th').forEach(el=>thumbObs.observe(el));
+  setTimeout(()=>{ const c = grid.querySelector('.cur'); if (c) c.scrollIntoView({block:'center'}); }, 60);
+}
+async function pumpThumbs(){
+  if (thumbBusy) return; thumbBusy = true;
+  const doc = pdf;
+  while (thumbQ.length && doc === pdf) {
+    const {p, el} = thumbQ.shift();
+    try {
+      const page = await doc.getPage(p), v1 = page.getViewport({scale:1}), vp = page.getViewport({scale:150*Math.min(dpr,2)/v1.width});
+      const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+      const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+      await page.render({canvasContext:cx, viewport:vp}).promise;
+      if (doc !== pdf) break;
+      const url = c.toDataURL('image/jpeg', 0.7); thumbCache.set(p, url);
+      el.innerHTML = '<img alt="" src="' + url + '">';
+    } catch(_){}
+  }
+  thumbBusy = false;
+}
+
+/* ---------- bookmarks ---------- */
+function renderBm(){
+  const box = $('pv-bm'); box.innerHTML = '';
+  const list = (curMeta && curMeta.bookmarks || []).slice().sort((a,b)=>a.page-b.page);
+  if (!list.length) { box.innerHTML = '<p class="muted">No bookmarks yet. Tap the bookmark icon at the top while reading to mark a page.</p>'; return; }
+  for (const bm of list) {
+    const row = document.createElement('div'); row.className = 'bmrow';
+    const b = document.createElement('button'); b.className = 'item';
+    b.innerHTML = '<span class="meta">Page ' + bm.page + '</span>' + (bm.note ? '<span class="txt"></span>' : '');
+    if (bm.note) b.querySelector('.txt').textContent = bm.note;
+    b.onclick = ()=>{ closeSheets(); jumpTo(bm.page); };
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '×'; x.title = 'Remove';
+    x.onclick = ()=>{ curMeta.bookmarks = curMeta.bookmarks.filter(q=>q!==bm); saveMeta(); renderBm(); updateUI(); draw(); };
+    row.append(b, x); box.appendChild(row);
+  }
+}
+$('bmBtn').onclick = async ()=>{
+  if (!curMeta) return;
+  const p = realPage(cur);
+  curMeta.bookmarks = curMeta.bookmarks || [];
+  const i = curMeta.bookmarks.findIndex(b=>b.page===p);
+  if (i >= 0) { curMeta.bookmarks.splice(i,1); toast('Bookmark removed'); }
+  else {
+    const note = await ask({msg:'Bookmark page ' + p, input:{placeholder:'Note (optional)'}, ok:'Save'});
+    if (note === null) return;
+    curMeta.bookmarks.push({page:p, note:note.trim(), added:Date.now()});
+    toast('Page bookmarked');
+  }
+  saveMeta(); updateUI(); draw();
+};
+
+/* ---------- quotes ---------- */
+async function renderQuotes(){
+  const box = $('pv-quotes'); box.innerHTML = '';
+  let list = [];
+  try { list = await dbReq('quotes','readonly',os=>os.index('book').getAll(curMeta.id || 'tmp')) || []; } catch(_){}
+  list.sort((a,b)=>a.page-b.page || a.added-b.added);
+  if (!list.length) { box.innerHTML = '<p class="muted">No quotes yet. Tap the pen icon at the top, choose ✂ Quote, and drag a box around any passage to save it here.</p>'; return; }
+  for (const q of list) {
+    const d = document.createElement('div'); d.className = 'quote';
+    d.innerHTML = '<img alt="Quote from page ' + q.page + '" src="' + q.img + '"><div class="qrow"><span>Page ' + q.page + ' · ' + new Date(q.added).toLocaleDateString() + '</span><button>Delete</button></div>';
+    d.querySelector('img').onclick = ()=>{ closeSheets(); jumpTo(q.page); };
+    d.querySelector('button').onclick = async ()=>{ try { await dbReq('quotes','readwrite',os=>os.delete(q.qid)); } catch(_){} renderQuotes(); };
+    box.appendChild(d);
+  }
+}
+
+/* ---------- search ---------- */
+let searchTok = 0;
+function norm(s){
+  return s.normalize('NFKC')
+    .replace(/[ً-ٰٟـ‌-‏]/g,'')
+    .replace(/[إأآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي')
+    .toLowerCase();
+}
+async function pageText(p){
+  if (textCache.has(p)) return textCache.get(p);
+  const page = await pdf.getPage(p), tc = await page.getTextContent();
+  let s = ''; for (const it of tc.items) { if (it.str) s += it.str; s += it.hasEOL ? '\n' : ' '; }
+  textCache.set(p, s); return s;
+}
+function addResult(p, snip){
+  const b = document.createElement('button'); b.className = 'item';
+  b.innerHTML = '<span class="meta">Page ' + p + '</span><span class="txt"></span>';
+  b.querySelector('.txt').textContent = '…' + snip.trim() + '…';
+  b.onclick = ()=>{ closeSheets(); jumpTo(p); };
+  $('findRes').appendChild(b);
+}
+async function runSearch(q){
+  const tok = ++searchTok, st = $('findStatus');
+  $('findRes').innerHTML = '';
+  const nq = norm(q).replace(/\s+/g,'');
+  if (nq.length < 2) { st.textContent = 'Type at least 2 letters'; return; }
+  const rq = [...nq].reverse().join(''), qs = rq !== nq ? [nq, rq] : [nq];
+  let found = 0, chars = 0;
+  for (let p = 1; p <= nPages; p++) {
+    if (tok !== searchTok) return;
+    let raw = ''; try { raw = await pageText(p); } catch(_){}
+    chars += raw.trim().length;
+    if (p === Math.min(5, nPages) && chars < 20) { st.textContent = 'This book has no searchable text — its pages are scanned images.'; return; }
+    const n = norm(raw).replace(/\s+/g,' ');
+    let stripped = ''; const map = [];
+    for (let i=0;i<n.length;i++) if (n[i] !== ' ') { stripped += n[i]; map.push(i); }
+    for (const qq of qs) {
+      let from = 0, k;
+      while ((k = stripped.indexOf(qq, from)) !== -1 && found < 300) {
+        found++;
+        const a = map[k], b = map[k+qq.length-1];
+        addResult(p, n.slice(Math.max(0,a-35), b+36));
+        from = k + qq.length;
+      }
+    }
+    if (p % 10 === 0 || p === nPages) st.textContent = (p < nPages ? 'Searching… page ' + p + ' of ' + nPages + ' · ' : '') + found + ' result' + (found===1?'':'s');
+  }
+}
+$('findForm').onsubmit = e=>{ e.preventDefault(); $('findIn').blur(); runSearch($('findIn').value); };
+
+/* ================= auto-trim margins ================= */
+function inkBox(id){
+  const {data, width:w, height:h} = id, n = w*h, lum = new Uint8Array(n), hist = new Uint32Array(256);
+  for (let i=0,j=0;i<n;i++,j+=4){ const l = (data[j]*299 + data[j+1]*587 + data[j+2]*114)/1000 | 0; lum[i] = l; hist[l]++; }
+  let acc = 0, bg = 255; for (let l=0;l<256;l++){ acc += hist[l]; if (acc >= n*0.85) { bg = l; break; } }
+  const thr = bg - 45; if (thr < 40) return null;
+  const rows = new Uint32Array(h), cols = new Uint32Array(w);
+  const mx = Math.floor(w*0.012), my = Math.floor(h*0.012);
+  for (let y=my;y<h-my;y++) for (let x=mx;x<w-mx;x++) if (lum[y*w+x] < thr) { rows[y]++; cols[x]++; }
+  const rOk = y => rows[y] > w*0.004 && rows[y] < w*0.7, cOk = x => cols[x] > h*0.003 && cols[x] < h*0.7;
+  let y0 = 0; while (y0 < h && !rOk(y0)) y0++;
+  let y1 = h-1; while (y1 > y0 && !rOk(y1)) y1--;
+  let x0 = 0; while (x0 < w && !cOk(x0)) x0++;
+  let x1 = w-1; while (x1 > x0 && !cOk(x1)) x1--;
+  if (y0 >= y1 || x0 >= x1) return null;
+  return {x0:x0/w, y0:y0/h, x1:(x1+1)/w, y1:(y1+1)/h};
+}
+async function computeCrop(doc){
+  const n = doc.numPages;
+  let idx = n <= 4 ? [...Array(n)].map((_,i)=>i+1) : [0.3,0.45,0.6,0.75].map(f=>Math.max(2, Math.round(n*f)));
+  idx = [...new Set(idx)];
+  let box = null;
+  for (const p of idx) {
+    const page = await doc.getPage(p), v1 = page.getViewport({scale:1}), vp = page.getViewport({scale:240/v1.width});
+    const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const cx = c.getContext('2d', {willReadFrequently:true}); cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+    await page.render({canvasContext:cx, viewport:vp}).promise;
+    const b = inkBox(cx.getImageData(0,0,c.width,c.height));
+    if (b) box = box ? {x0:Math.min(box.x0,b.x0), y0:Math.min(box.y0,b.y0), x1:Math.max(box.x1,b.x1), y1:Math.max(box.y1,b.y1)} : b;
+  }
+  if (!box) return FULL;
+  const pad = 0.025;
+  box = {x0:Math.max(0,box.x0-pad), y0:Math.max(0,box.y0-pad), x1:Math.min(1,box.x1+pad), y1:Math.min(1,box.y1+pad)};
+  if ((box.x1-box.x0)*(box.y1-box.y0) < 0.25) return FULL;
+  if ((box.x1-box.x0) > 0.95 && (box.y1-box.y0) > 0.95) return FULL;
+  return box;
+}
+async function detectDir(doc){
+  try {
+    let ar = 0, la = 0; const n = doc.numPages;
+    const ps = [...new Set([Math.min(n,2), Math.ceil(n/2), Math.min(n, Math.ceil(n/2)+1)])];
+    for (const p of ps) {
+      const tc = await (await doc.getPage(p)).getTextContent();
+      for (const it of tc.items) { const s = it.str || ''; ar += (s.match(/[؀-ۿﭐ-﷿ﹰ-﻿]/g)||[]).length; la += (s.match(/[A-Za-z]/g)||[]).length; }
+    }
+    return (la > 80 && la > ar*2) ? 'ltr' : 'rtl';
+  } catch(_) { return 'rtl'; }
+}
+
+/* ================= opening books ================= */
+document.querySelectorAll('.fileIn').forEach(inp=>inp.addEventListener('change', async e=>{
+  const files = Array.from(e.target.files || []); e.target.value = '';
+  if (!files.length) return;
+  $('loading').textContent = files.length > 1 ? 'Adding ' + files.length + ' books…' : 'Adding book…';
+  $('loading').classList.add('on');
+  let lastId = null, added = 0;
+  for (const f of files) {
+    try {
+      const buf = await f.arrayBuffer();
+      const r = await addBook(f.name, f.size, buf);
+      if (r.saved) { lastId = r.id; added++; }
+      else if (files.length === 1) {
+        $('loading').classList.remove('on');
+        toast('Not enough storage to keep this book — opening it without saving');
+        const doc = await lib.getDocument({data:new Uint8Array(buf.slice(0))}).promise; const dir = await detectDir(doc); doc.destroy();
+        await openBuf(new Uint8Array(buf), {id:null, name:f.name, page:1, bookmarks:[], dir}); return;
+      }
+    } catch (err) { console.error(err); toast('Could not open ' + f.name); }
+  }
+  $('loading').classList.remove('on');
+  if (files.length === 1 && lastId) openBook(lastId, true);
+  else { if (added) toast(added + ' book' + (added>1?'s':'') + ' added'); renderLibrary(); }
+}));
+
+async function openBuf(data, meta, isNew){
+  $('loading').textContent = 'Opening book…';
+  $('loading').classList.add('on');
+  try {
+    invalidate(); anim = null; returnPage = null;
+    if (pdf) { try { pdf.destroy(); } catch(_){} pdf = null; }
+    const doc = await lib.getDocument({data}).promise;
+    const mid = await doc.getPage(Math.max(1, Math.ceil(doc.numPages/2))), v = mid.getViewport({scale:1});
+    meta.bookmarks = meta.bookmarks || []; meta.ann = meta.ann || {};
+    if (S.crop && !meta.crop) {
+      $('loading').textContent = 'Measuring margins…';
+      try { meta.crop = await computeCrop(doc); } catch(_){ meta.crop = FULL; }
+    }
+    pdf = doc; nPages = doc.numPages; pageW = v.width; pageH = v.height;
+    curMeta = meta; textCache = new Map(); thumbCache = new Map(); outline = null; searchTok++;
+    $('findRes').innerHTML = ''; $('findStatus').textContent = ''; $('findIn').value = ''; showTab('toc');
+    doc.getOutline().then(o=>{ if (pdf === doc) outline = o; }).catch(()=>{});
+    $('title').textContent = bookName(meta);
+    $('slider').max = nPages;
+    document.body.classList.add('reading');
+    computeMode(); nViews = countViews(); computeAspect(); R.w = 0; layout();
+    cur = firstView(Math.min(nPages, meta.page || 1));
+    lastPageT = Date.now();
+    setView(cur, true);
+    updateWake(); updateAutoPill(); updateBackPill();
+    setBars(true); setTimeout(()=>{ if (!anySheet()) setBars(false); }, 2500);
+    if (isNew && meta.dir === 'ltr') setTimeout(()=>toast('English book — reading left → right (change it in Aa)'), 400);
+  } finally { $('loading').classList.remove('on'); }
+}
+async function openBook(id, isNew){
+  try {
+    const meta = await dbReq('meta','readonly',os=>os.get(id));
+    const data = await dbReq('data','readonly',os=>os.get(id));
+    if (!meta || !data) { toast('Book not found'); return renderLibrary(); }
+    meta.lastOpened = Date.now();
+    dbReq('meta','readwrite',os=>os.put(meta)).catch(()=>{});
+    await openBuf(new Uint8Array(data), meta, isNew);
+  } catch (err) { console.error(err); toast('Could not open this book'); }
+}
+function saveMeta(){
+  if (!curMeta) return;
+  curMeta.page = realPage(cur);
+  if (!curMeta.id) return;
+  clearTimeout(saveT);
+  const m = JSON.parse(JSON.stringify(curMeta));
+  saveT = setTimeout(()=>{ dbReq('meta','readwrite',os=>os.put(m)).catch(()=>{}); }, 400);
+}
+function showLibrary(){
+  closeSheets(); if (annot.on) setAnnot(false); resetZoom();
+  autoOn = false;
+  document.body.classList.remove('reading');
+  updateAutoPill(); updateBackPill(); updateWake();
+  renderLibrary();
+}
+$('libBtn').onclick = showLibrary;
+
+/* ================= library storage (IndexedDB) ================= */
+let dbP = null;
+function idb(){
+  if (!dbP) dbP = new Promise((res,rej)=>{
+    const r = indexedDB.open('rtl-book-reader', 3);
+    r.onupgradeneeded = ()=>{
+      const db = r.result;
+      if (!db.objectStoreNames.contains('files')) db.createObjectStore('files');
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', {keyPath:'id'});
+      if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
+      if (!db.objectStoreNames.contains('quotes')) db.createObjectStore('quotes', {keyPath:'qid', autoIncrement:true}).createIndex('book','book');
+    };
+    r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error);
+  });
+  return dbP;
+}
+async function dbReq(stores, mode, fn){
+  const db = await idb();
+  return new Promise((res,rej)=>{
+    const t = db.transaction(stores, mode);
+    const os = Array.isArray(stores) ? stores.map(s=>t.objectStore(s)) : t.objectStore(stores);
+    const r = fn(os); let out;
+    if (r && 'onsuccess' in r) r.onsuccess = ()=>{ out = r.result; };
+    t.oncomplete = ()=>res(out); t.onerror = ()=>rej(t.error); t.onabort = ()=>rej(t.error);
+  });
+}
+async function makeThumb(doc){
+  const page = await doc.getPage(1), v1 = page.getViewport({scale:1});
+  const vp = page.getViewport({scale: 260/v1.width});
+  const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+  const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:cx, viewport:vp}).promise;
+  return c.toDataURL('image/jpeg', 0.8);
+}
+async function addBook(name, size, buf){
+  const id = name + '|' + size;
+  try {
+    const existing = await dbReq('meta','readonly',os=>os.get(id));
+    if (existing) return {id, saved:true};
+  } catch(_){ return {id, saved:false}; }
+  const doc = await lib.getDocument({data:new Uint8Array(buf.slice(0))}).promise;
+  let thumb = ''; try { thumb = await makeThumb(doc); } catch(_){}
+  const dir = await detectDir(doc);
+  const meta = {id, name, size, pages:doc.numPages, thumb, added:Date.now(), lastOpened:0, page:1, bookmarks:[], ann:{}, dir};
+  try { doc.destroy(); } catch(_){}
+  try {
+    await dbReq('data','readwrite',os=>os.put(buf, id));
+    await dbReq('meta','readwrite',os=>os.put(meta));
+    return {id, saved:true};
+  } catch (err) {
+    console.error(err);
+    dbReq(['meta','data'],'readwrite',([m,d])=>{ m.delete(id); d.delete(id); }).catch(()=>{});
+    return {id, saved:false};
+  }
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const isDone = b => b.finished === true || (b.finished !== false && (b.page||1) >= b.pages);
+let libQ = '', libShelf = 'all', libSort = 'recent';
+try { libSort = localStorage.getItem('rtl-libsort') || 'recent'; } catch(_){}
+$('libSort').value = libSort;
+$('libQ').oninput = e=>{ libQ = e.target.value; renderLibrary(); };
+$('libSort').onchange = e=>{ libSort = e.target.value; try { localStorage.setItem('rtl-libsort', libSort); } catch(_){} renderLibrary(); };
+async function putMeta(m){ await dbReq('meta','readwrite',os=>os.put(m)); }
+async function bookMenu(b){
+  const done = isDone(b);
+  const i = await choose(bookName(b), [{label:'Rename'}, {label:'Move to shelf…'}, {label: done ? 'Mark as unread' : 'Mark as finished'}, {label:'Remove from library', danger:true}]);
+  if (i === null) return;
+  if (i === 0) {
+    const v = await ask({msg:'Book name', input:{value:bookName(b)}, ok:'Save'});
+    if (v !== null && v.trim()) { b.title = v.trim(); await putMeta(b); }
+  } else if (i === 1) {
+    const all = await dbReq('meta','readonly',os=>os.getAll()) || [];
+    const shelves = [...new Set(all.map(x=>x.shelf).filter(Boolean))].sort();
+    const opts = shelves.map(s=>({label:(s===b.shelf ? '✓ ' : '') + s})).concat([{label:'+ New shelf…'}, {label:'No shelf'}]);
+    const j = await choose('Move to shelf', opts);
+    if (j === null) return;
+    if (j < shelves.length) b.shelf = shelves[j];
+    else if (j === shelves.length) { const v = await ask({msg:'New shelf name', input:{placeholder:'e.g. Engineering, Novels…'}, ok:'Create'}); if (v === null || !v.trim()) return; b.shelf = v.trim(); }
+    else delete b.shelf;
+    await putMeta(b); toast(b.shelf ? 'Moved to “' + b.shelf + '”' : 'Removed from shelf');
+  } else if (i === 2) {
+    if (done) { b.finished = false; b.page = 1; } else b.finished = true;
+    await putMeta(b);
+  } else if (i === 3) {
+    const ok = await ask({msg:'Remove “' + bookName(b) + '” from your library?', ok:'Remove', danger:true});
+    if (!ok) return;
+    try {
+      await dbReq(['meta','data','quotes'],'readwrite',([m,d,q])=>{
+        m.delete(b.id); d.delete(b.id);
+        q.index('book').openCursor(IDBKeyRange.only(b.id)).onsuccess = ev=>{ const c = ev.target.result; if (c) { c.delete(); c.continue(); } };
+      });
+      toast('Removed');
+    } catch(_){ toast('Could not remove'); }
+  }
+  renderLibrary();
+}
+async function renderLibrary(){
+  let books = [];
+  try { books = await dbReq('meta','readonly',os=>os.getAll()) || []; } catch(_){}
+  const has = books.length > 0;
+  $('empty').style.display = has ? 'none' : 'flex';
+  $('libTools').style.display = has ? 'flex' : 'none';
+  $('goalCard').style.display = has ? 'block' : 'none';
+  // goal card
+  const pt = pagesToday(), sk = streak();
+  $('gText').textContent = 'Today: ' + pt + ' / ' + S.goal + ' pages';
+  $('gStreak').textContent = sk ? '🔥 ' + sk + '-day streak' : 'Start a streak today';
+  $('gFill').style.width = Math.min(100, pt/S.goal*100) + '%';
+  // shelves
+  const shelves = [...new Set(books.map(b=>b.shelf).filter(Boolean))].sort();
+  if (libShelf !== 'all' && libShelf !== '__done' && !shelves.includes(libShelf)) libShelf = 'all';
+  const chips = $('chips'); chips.innerHTML = '';
+  if (has) {
+    [['all','All'], ...shelves.map(s=>[s,s]), ['__done','Finished']].forEach(([v,label])=>{
+      const c = document.createElement('button'); c.className = 'chip' + (v===libShelf ? ' on' : ''); c.textContent = label;
+      c.onclick = ()=>{ libShelf = v; renderLibrary(); }; chips.appendChild(c);
+    });
+  }
+  // filter & sort
+  const q = norm(libQ.trim());
+  let list = books.filter(b => (libShelf === 'all' || (libShelf === '__done' ? isDone(b) : b.shelf === libShelf)) && (!q || norm(bookName(b)).includes(q)));
+  if (libSort === 'name') list.sort((a,b)=>bookName(a).localeCompare(bookName(b), 'ar'));
+  else if (libSort === 'progress') list.sort((a,b)=>((b.page||1)/b.pages) - ((a.page||1)/a.pages));
+  else list.sort((a,b)=> (b.lastOpened||0)-(a.lastOpened||0) || b.added-a.added);
+  $('noMatch').style.display = has && !list.length ? 'block' : 'none';
+  const recentId = books.slice().sort((a,b)=>(b.lastOpened||0)-(a.lastOpened||0))[0];
+  const grid = $('grid'); grid.innerHTML = '';
+  list.forEach(b=>{
+    const pct = b.pages > 1 ? Math.round(((b.page||1)-1)/(b.pages-1)*100) : 0;
+    const done = isDone(b);
+    const left = !done && b.avgSec ? ' · ' + fmtDur((b.pages-(b.page||1))*b.avgSec) + ' left' : '';
+    const el = document.createElement('div'); el.className = 'card';
+    el.innerHTML =
+      '<div class="cover">' + (b.thumb ? '<img alt="" src="'+b.thumb+'">' : '') +
+      (done ? '<span class="badge done">Finished</span>' : (recentId && recentId.id === b.id && b.lastOpened ? '<span class="badge">Continue</span>' : '')) +
+      '<button class="more" title="Options">⋯</button></div>' +
+      '<div class="name">' + esc(bookName(b)) + '</div>' +
+      '<div class="prog"><i style="width:'+(done ? 100 : pct)+'%"></i></div>' +
+      '<div class="pg">' + (done ? 'Finished · ' + b.pages + ' pages' : 'Page ' + (b.page||1) + ' of ' + b.pages + left) + '</div>' +
+      (b.shelf && libShelf === 'all' ? '<div class="shelfTag">' + esc(b.shelf) + '</div>' : '');
+    el.onclick = ()=>openBook(b.id);
+    el.querySelector('.more').onclick = ev=>{ ev.stopPropagation(); bookMenu(b); };
+    grid.appendChild(el);
+  });
+  let line = '';
+  if (has) {
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        line = books.length + ' book' + (books.length>1?'s':'') + ' · ' + (est.usage/1048576).toFixed(1) + ' MB used on this device';
+      }
+    } catch(_){}
+  }
+  $('usage').textContent = line;
+}
+async function migrateOld(){
+  try {
+    const last = await dbReq('files','readonly',os=>os.get('last'));
+    if (last && last.data) { await addBook(last.name, last.data.byteLength, last.data); await dbReq('files','readwrite',os=>os.delete('last')); }
+  } catch(_){}
+}
+
+applyLight(); syncSettingsUI(); computeMode(); layout();
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); } catch(_){}
+(async()=>{ await migrateOld(); renderLibrary(); await receiveShared(); })();
+
+/* ================= installed-app extras ================= */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// Android back button: close what's open, step back to the library, then leave the app
+function backStep(){
+  if ($('dlg').classList.contains('on')) { $('dno').click(); return true; }
+  if (anySheet()) { if ($('menu').classList.contains('open')) $('scrim').click(); else closeSheets(); return true; }
+  if (annot.on) { setAnnot(false); return true; }
+  if (Z.s > 1.001) { resetZoom(); return true; }
+  if (reading()) { showLibrary(); return true; }
+  return false;
+}
+try { history.replaceState({biyh:'base'}, ''); history.pushState({biyh:'top'}, ''); } catch(_){}
+addEventListener('popstate', ()=>{
+  if (backStep()) { try { history.pushState({biyh:'top'}, ''); } catch(_){} }
+  else history.back();
+});
+
+// PDFs shared to the app ("Share → Book in Your Hand") are added to the library
+async function receiveShared(){
+  if (!/[?&]shared=1/.test(location.search) || !('caches' in window)) return;
+  try { history.replaceState({biyh:'base'}, '', location.pathname); history.pushState({biyh:'top'}, ''); } catch(_){}
+  try {
+    const cache = await caches.open('biyh-share'), reqs = await cache.keys();
+    if (!reqs.length) return;
+    $('loading').textContent = 'Adding shared book…'; $('loading').classList.add('on');
+    let lastId = null, n = 0;
+    for (const rq of reqs) {
+      const res = await cache.match(rq);
+      const name = decodeURIComponent(res.headers.get('X-Name') || 'book.pdf');
+      const buf = await res.arrayBuffer();
+      const r = await addBook(name, buf.byteLength, buf);
+      if (r.saved) { lastId = r.id; n++; }
+      await cache.delete(rq);
+    }
+    $('loading').classList.remove('on');
+    if (n === 1 && lastId) openBook(lastId, true);
+    else { if (n) toast(n + ' books added'); renderLibrary(); }
+  } catch (e) { console.error(e); $('loading').classList.remove('on'); toast('Could not add the shared file'); }
+}
+})();
+</script>
+</body>
+</html>

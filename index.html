@@ -1568,8 +1568,8 @@ async function startR3(){
   try { ren = new T3.WebGLRenderer({canvas: cv3, antialias: true, alpha: true}); } catch(_){ S.read3d = false; saveS(); return; }
   document.body.insertBefore(cv3, $('book').nextSibling);
   r3 = {T3, ren, cv: cv3, texs: [], mats: [], geos: [], tex: new Map(), dirty: true, zoom: 1, tilt: 0.38, pan: {x: 0, y: 0}, pts: new Map(), camX: 0.5};
-  ren.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); ren.outputEncoding = T3.sRGBEncoding;
-  ren.shadowMap.enabled = true; ren.shadowMap.type = T3.PCFSoftShadowMap;
+  ren.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75)); ren.outputEncoding = T3.sRGBEncoding;
+  ren.shadowMap.enabled = true; ren.shadowMap.type = T3.PCFShadowMap;
   const scene = new T3.Scene(); r3.scene = scene;
   r3.cam = new T3.PerspectiveCamera(30, 1, 0.02, 40);
   scene.add(new T3.HemisphereLight(0xfff6e8, 0x4a3420, 0.9));
@@ -1604,7 +1604,8 @@ function r3Build(){
   const r = r3, T3 = r.T3, h = R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
   r.h = h; r.T = Math.max(0.006, bookThickness()); r.bt = 0.022; r.sg = sg;
   const g = new T3.Group(); g.scale.x = sg; r.scene.add(g); r.g = g;    // logical (Arabic) layout, mirrored for English books
-  const mat = o => { const m = new T3.MeshStandardMaterial(Object.assign({roughness: 0.85, metalness: 0}, o)); r.mats.push(m); return m; };
+  const mat = o => { const q = Object.assign({}, o); delete q.roughness; delete q.metalness;   // matte paper: light computed per point of the mesh, cheap on phones
+    const m = new T3.MeshLambertMaterial(q); r.mats.push(m); return m; };
   r.mat = mat;
   const board = v3BoardColor(), gilt = mushafOn();
   const boardM = mat({color: new T3.Color(board), roughness: 0.55});
@@ -1652,15 +1653,18 @@ function r3PageGeo(side, ts){                          // the top page lying on 
 }
 function r3Stacks(){                                   // (re)build both page blocks for where you are in the book
   const r = r3, T3 = r.T3, n = nPages || 1;
-  (r.stackMeshes || []).forEach(m => { r.g.remove(m); m.geometry.dispose(); });
-  r.stackMeshes = [];
-  const fr = Math.max(0, Math.min(1, r.first/n));
-  r.tsR = r.T*fr; r.tsL = r.T*(1 - fr);
+  const old = r.stackMeshes || [];
+  const fr = Math.max(0, Math.min(1, r.first/n)), tsR = r.T*fr, tsL = r.T*(1 - fr);
+  if (r.stackMeshes && r.stackMeshes.length && Math.abs(tsR - r.tsR) < 0.0025) return;   // too small to see: keep the old block
+  r.tsR = tsR; r.tsL = tsL;
+  const fresh = [];
   [[1, r.tsR, r.pageM.R], [-1, r.tsL, r.pageM.L]].forEach(([side, ts, pm])=>{
     const blk = new T3.Mesh(r3StackGeo(ts), [r.capM, r.sideM]); blk.scale.x = side; blk.position.z = r.bt; blk.receiveShadow = true;
     const pg = new T3.Mesh(r3PageGeo(side, ts), pm); pg.position.z = r.bt; pg.receiveShadow = true;
-    r.g.add(blk); r.g.add(pg); r.stackMeshes.push(blk, pg);
+    r.g.add(blk); r.g.add(pg); fresh.push(blk, pg);
   });
+  old.forEach(m => { r.g.remove(m); m.geometry.dispose(); });
+  r.stackMeshes = fresh;
   r.dirty = true;
 }
 function r3Locate(){                                   // pick up the reader's current page
@@ -1687,11 +1691,12 @@ function r3TexFor(page, flip){
     const f = {night: 'invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9)', sepia: 'sepia(0.45) brightness(0.97)', dim: 'brightness(0.8) sepia(0.2)'}[S.theme];
     if (f) src = v3Canvas(c.width, c.height, x => { x.filter = f; x.drawImage(c, 0, 0); });
   }
-  const tx = new T3.CanvasTexture(src); tx.encoding = T3.sRGBEncoding; tx.anisotropy = r.ren.capabilities.getMaxAnisotropy();
+  const tx = new T3.CanvasTexture(src); tx.encoding = T3.sRGBEncoding; tx.anisotropy = Math.min(8, r.ren.capabilities.getMaxAnisotropy());
   if (fl) { tx.wrapS = T3.RepeatWrapping; tx.repeat.x = -1; tx.offset.x = 1; }
   if (old) { old.t.dispose(); r.texs = r.texs.filter(z => z !== old.t); }
   r.texs.push(tx); r.tex.set(key, {t: tx, src: c});
-  if (r.tex.size > 14) { const [k0, v0] = r.tex.entries().next().value; if (![r.pageM.L, r.pageM.R, r.pageM.F, r.pageM.B].some(m => m.map === v0.t)) { v0.t.dispose(); r.tex.delete(k0); } }
+  if (r.ren.initTexture) try { r.ren.initTexture(tx); } catch(_){}   // upload now, not in the middle of a turn
+  if (r.tex.size > 18) { const [k0, v0] = r.tex.entries().next().value; if (![r.pageM.L, r.pageM.R, r.pageM.F, r.pageM.B].some(m => m.map === v0.t)) { v0.t.dispose(); r.tex.delete(k0); } }
   return {t: tx, ok: c === cache.get(keyFor(page))};
 }
 function r3SetMat(m, page, flip){
@@ -1709,6 +1714,15 @@ function r3Fill(){                                     // textures for what is o
     r3SetMat(r.pageM.R, t.dir === 'next' ? r.first : r.first - 2, false);
   } else { r3SetMat(r.pageM.R, r.first, false); r3SetMat(r.pageM.L, r.first + 1, false); }
   for (const p of [r.first - 2, r.first - 1, r.first + 2, r.first + 3]) if (p >= 1 && p <= nPages) r3Canvas(p);
+  r3Warm();
+}
+function r3Warm(){                                     // get both possible turns ready while you read
+  const r = r3; if (!r || r.warmT) return;
+  r.warmT = setTimeout(()=>{
+    r.warmT = 0; if (!r3 || r3 !== r || r.turn || r.tw) return;
+    const f = r.first, jobs = [[f + 1, false], [f + 2, true], [f + 3, false], [f + 2, false], [f - 1, false], [f, true], [f - 2, false], [f - 1, true]];
+    for (const [p, fl] of jobs) if (p >= 1 && p <= nPages) r3TexFor(p, fl);
+  }, 120);
 }
 function r3Refresh(){                                  // called whenever the flat reader would redraw
   const r = r3; if (!r) return;
@@ -1749,7 +1763,7 @@ function r3EndTurn(done){
     r.side = r.both ? 'first' : (t.dir === 'next' ? 'first' : 'second');
     r.camX = r.side === 'first' ? 0.5 : -0.5;
     r3Stacks(); haptic(8);
-    r3Sync();
+    requestAnimationFrame(()=>{ if (r3 === r) r3Sync(); });
   }
   r3Fill();
 }
@@ -1757,13 +1771,14 @@ function r3Sync(){                                     // keep the flat reader (
   const r = r3, n = nPages, pg = Math.max(1, Math.min(n, r.side === 'first' ? r.first : r.first + 1));
   r.syncing = true; setView(firstView(pg)); r.syncing = false; r.view = cur;
 }
-function r3Tween(d, step, done){ r3.tw = {t0: performance.now(), d, step, done}; r3.dirty = true; }
+function r3Tween(d, step, done, ease){ r3.tw = {t0: performance.now(), d, step, done, ease: ease || easeInOut}; r3.dirty = true; }
+const easeOut3 = t => 1 - Math.pow(1 - t, 3);
 function r3Turn(dir, from, lift){                       // animate a whole turn (or the rest of a dragged one)
   const r = r3, to = dir === 'next' ? 1 : 0;
   if (from === undefined) r3BeginTurn(dir, lift || 0.6);
-  const p0 = from === undefined ? 1 - to : from, dur = Math.max(160, 680*paperK().dur*Math.abs(to - p0));
+  const p0 = from === undefined ? 1 - to : from, dur = Math.max(160, 620*paperK().dur*Math.abs(to - p0));
   if (from === undefined) turnSound(dur/1000, 1, dir);
-  r3Tween(dur, e => r3SheetPose(p0 + (to - p0)*e, r.turn ? r.turn.lift : 0), ()=> r3EndTurn(true));
+  r3Tween(dur, e => r3SheetPose(p0 + (to - p0)*e, r.turn ? r.turn.lift : 0), ()=> r3EndTurn(true), t2 => t2 < 0.5 ? 2*t2*t2 : 1 - Math.pow(-2*t2 + 2, 2.2)/2);
 }
 function r3Pan(side){
   const r = r3, x0 = r.camX, x1 = side === 'first' ? 0.5 : -0.5;
@@ -1799,8 +1814,12 @@ function r3Loop(now){
   const r = r3; if (!r) return;
   r.raf = requestAnimationFrame(r3Loop);
   if (r.tw) {
-    const tw = r.tw, k = RM ? 1 : Math.min(1, (now - tw.t0)/tw.d); tw.step(easeInOut(k)); r.dirty = true;
+    const tw = r.tw, k = RM ? 1 : Math.min(1, (now - tw.t0)/tw.d); tw.step(tw.ease(k)); r.dirty = true;
     if (k >= 1 && r.tw === tw) { r.tw = null; if (tw.done) tw.done(); autoSchedule(); }
+  }
+  const dt = Math.min(0.05, (now - (r.lastT || now))/1000); r.lastT = now;
+  if (r.drag && r.target !== undefined && Math.abs(r.target - r.sheetP) > 0.0005) {   // the sheet follows the finger softly
+    r3SheetPose(r.sheetP + (r.target - r.sheetP)*(1 - Math.exp(-dt*22)), r.turn.lift);
   }
   if (!r.dirty) return;
   r.dirty = false;
@@ -1845,14 +1864,14 @@ function r3Wire(){
         stopAutoTimerOnly();
         if (!r.both && ((dir === 'next' && r.side === 'first' && r.first + 1 <= n) || (dir === 'prev' && r.side === 'second'))) g1.mode = 'pan';
         else if ((dir === 'next' && r.first + 2 > n) || (dir === 'prev' && r.first - 1 < 1)) g1.mode = 'end';
-        else { g1.mode = 'turn'; g1.dir = dir; const ry = (e.clientY/innerHeight); r3BeginTurn(dir, ry > 0.6 ? 1 : ry < 0.4 ? -1 : 0); r.drag = true; turnSound(0.22, 1, dir, 'lift'); }
+        else { g1.mode = 'turn'; g1.dir = dir; const ry = (e.clientY/innerHeight); r3BeginTurn(dir, ry > 0.6 ? 1 : ry < 0.4 ? -1 : 0); r.drag = true; r.target = r.sheetP; turnSound(0.22, 1, dir, 'lift'); }
         g1.panDir = dir;
       }
     }
     if (g1.mode === 'tilt') { r.tilt = Math.max(0, Math.min(1.15, g1.tilt0 + dy*0.0045)); r.dirty = true; }
     else if (g1.mode === 'turn') {
       const f = Math.max(0, Math.min(1, Math.abs(dx)/(innerWidth*(r.both ? 0.5 : 0.85))));
-      r3SheetPose(g1.dir === 'next' ? f : 1 - f, r.turn.lift);
+      r.target = g1.dir === 'next' ? f : 1 - f; r.dirty = true;
     }
   };
   const up = e=>{
@@ -1863,11 +1882,16 @@ function r3Wire(){
     const g1 = r.g1; r.g1 = null; if (!g1) return;
     const dx = e.clientX - g1.x0;
     if (g1.mode === 'turn') {
-      r.drag = false;
-      const p = r.sheetP, prog = g1.dir === 'next' ? p : 1 - p, fling = Math.abs(g1.vx) > 0.5 && (g1.vx*r.sg > 0) === (g1.dir === 'next');
-      const done = e.type !== 'pointercancel' && (prog > 0.33 || fling);
-      if (done) { turnSound(0.4, 1, g1.dir, 'land'); r3Turn(g1.dir, p); }
-      else { const to = g1.dir === 'next' ? 0 : 1; r3Tween(220, ee => r3SheetPose(p + (to - p)*ee, r.turn.lift), ()=> r3EndTurn(false)); }
+      r.drag = false; r.target = undefined;
+      const p = r.sheetP, prog = g1.dir === 'next' ? p : 1 - p, fling = Math.abs(g1.vx) > 0.35 && (g1.vx*r.sg > 0) === (g1.dir === 'next');
+      const back = Math.abs(g1.vx) > 0.35 && !fling;
+      const done = e.type !== 'pointercancel' && !back && (prog > 0.3 || fling);
+      const speed = Math.max(0.6, Math.abs(g1.vx)*1000/(innerWidth*(r.both ? 0.5 : 0.85)));   // sheet widths per second at release
+      if (done) {
+        const to = g1.dir === 'next' ? 1 : 0, rest = Math.abs(to - p), d = Math.max(170, Math.min(560, 1000*rest*3/speed))*paperK().dur;
+        turnSound(d/1000, 1, g1.dir, 'land');
+        r3Tween(d, ee => r3SheetPose(p + (to - p)*ee, r.turn.lift), ()=> r3EndTurn(true), easeOut3);
+      } else { const to = g1.dir === 'next' ? 0 : 1, d = Math.max(160, Math.min(380, 1000*Math.abs(to - p)*3/speed)); r3Tween(d, ee => r3SheetPose(p + (to - p)*ee, r.turn.lift), ()=> r3EndTurn(false), easeOut3); }
     } else if (g1.mode === 'pan' || g1.mode === 'end') { if (Math.abs(dx) > 40) r3Step(g1.panDir); }
     else if (!g1.mode && e.type !== 'pointercancel' && performance.now() - g1.t0 < 400) {
       const now = performance.now();

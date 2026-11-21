@@ -22,6 +22,8 @@
   #book{position:fixed;inset:0;touch-action:none;display:block}
   #dim,#tint{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0}
   #dim{background:#000}
+  body.pure.reading #bottom{display:none!important}
+  body.pure.reading #backPill{display:none!important}
   #r3c{position:fixed;inset:0;width:100%;height:100%;z-index:2;touch-action:none;display:block}
   body.r3on #book{visibility:hidden}
   body.r3on #r3Btn{color:#c9a66b}
@@ -132,6 +134,25 @@
   .vbtn{flex:none;width:40px;border-radius:10px;border:1px solid rgba(243,234,216,.2);background:rgba(243,234,216,.08);color:#f3ead8;display:grid;place-items:center;cursor:pointer}
   .vbtn svg{width:20px;height:20px}
   body.lightbg .vbtn{color:#2a1d12;border-color:rgba(42,29,18,.3);background:rgba(42,29,18,.05)}
+  #desk{display:none;position:relative;height:190px;margin:0 0 14px;border-radius:8px;overflow:hidden;perspective:800px;
+    background:repeating-linear-gradient(91deg,rgba(0,0,0,.08) 0 2px,transparent 2px 9px),radial-gradient(ellipse at 50% 30%,#8a5a33 0%,#5b3a22 70%,#3b2414 100%);
+    box-shadow:inset 0 0 40px rgba(0,0,0,.55);align-items:center;justify-content:center;gap:34px}
+  body.shelfview #desk.has{display:flex}
+  #desk .lie{position:relative;width:104px;height:146px;transform-style:preserve-3d;transform:rotateX(50deg) rotateZ(-9deg);cursor:pointer;transition:transform .35s}
+  #desk .lie:active{transform:rotateX(46deg) rotateZ(-9deg) translateZ(14px)}
+  #desk .lie .cv{position:absolute;inset:0;background:#6e2a22 center/cover;border-radius:2px 5px 5px 2px;box-shadow:0 0 0 1px rgba(0,0,0,.25),18px 26px 22px rgba(0,0,0,.55);transform:translateZ(14px)}
+  #desk .lie .pg{position:absolute;left:3px;right:2px;bottom:0;height:14px;transform-origin:bottom;transform:rotateX(-90deg);background:repeating-linear-gradient(0deg,#f1e8d4 0 1px,#d8ccb2 1px 2px)}
+  #desk .lie .sd{position:absolute;top:2px;bottom:0;right:0;width:14px;transform-origin:right;transform:rotateY(90deg);background:repeating-linear-gradient(90deg,#f1e8d4 0 1px,#d8ccb2 1px 2px)}
+  #desk .lie .sl{position:absolute;top:-30px;left:28px;width:16px;height:44px;background:#efe4c8;border:1px solid #c7b48a;transform:translateZ(8px);box-shadow:1px 2px 3px rgba(0,0,0,.3)}
+  #desk .pile{display:flex;flex-direction:column-reverse;gap:1px;transform:rotateX(50deg) rotateZ(6deg);transform-style:preserve-3d}
+  #desk .pile div{width:120px;height:18px;border-radius:2px;color:#f3e6c8;font-size:10px;line-height:18px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:inset 0 -3px 4px rgba(0,0,0,.35),4px 8px 10px rgba(0,0,0,.4)}
+  #desk .cap{position:absolute;left:12px;top:8px;font-size:12px;opacity:.75;color:#f3ead8}
+  .slot{position:relative}
+  .slot .slip{position:absolute;width:10px;height:24px;background:#efe4c8;border:1px solid #c7b48a;box-shadow:1px 1px 2px rgba(0,0,0,.35)}
+  .spine.arrive,.card.arrive{animation:arrive .8s cubic-bezier(.2,.8,.3,1)}
+  #desk .lie.arrive{animation:land 0.9s cubic-bezier(.2,.8,.3,1)}
+  @keyframes land{from{transform:rotateX(50deg) rotateZ(-30deg) translateZ(220px);opacity:0}55%{opacity:1}to{transform:rotateX(50deg) rotateZ(-9deg)}}
+  @keyframes arrive{from{transform:translateY(-70px) rotate(-14deg);opacity:0}60%{opacity:1}to{transform:none;opacity:1}}
   #shelf{display:none;flex-wrap:wrap;align-items:flex-end;align-content:flex-start;padding:10px 12px 0;border-radius:6px;
     background:repeating-linear-gradient(180deg,transparent 0 190px,#8a5a33 190px,#b07a48 192px,#7a4d2a 197px,#3e2614 204px,rgba(0,0,0,.45) 204px,rgba(0,0,0,0) 216px),
       linear-gradient(180deg,#2b1b10,#3a2415 40%,#2b1b10);box-shadow:inset 0 0 30px rgba(0,0,0,.6);min-height:216px}
@@ -297,6 +318,7 @@
   </div>
   <div id="noMatch">No books match.</div>
   <div id="grid"></div>
+  <div id="desk"></div>
   <div id="shelf"></div>
   <div id="usage"></div>
 </div>
@@ -325,12 +347,13 @@
   <div id="v3top"><button class="ib" id="v3lib" title="Library"></button><span id="v3title"></span></div>
   <div id="v3bot">
     <button id="v3open">Open the book</button>
-    <div id="v3views"><button data-v="front">Front</button><button data-v="spine">Spine</button><button data-v="back">Back</button><button data-v="reset">Reset</button></div>
+    <div id="v3views"><button data-v="front">Front</button><button data-v="spine">Spine</button><button data-v="back">Back</button><button data-v="reset">Reset</button><button data-v="jacket" id="v3jacket">Jacket</button></div>
   </div>
 </div>
 <div id="annHint">Draw on the page · two fingers to zoom</div>
 <div id="annBar">
   <button data-tool="hl" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l-4 4h6l1-1"/><path d="M14.5 4.5l5 5L12 17l-5-5z"/></svg><span>Highlight</span></button>
+  <button data-tool="pencil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.5-5L16 4.5l3.5 3.5L9 18.5z"/><path d="M14 6.5l3.5 3.5"/><path d="M4 20l3-1"/></svg><span>Pencil</span></button>
   <button data-tool="pen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span>Pen</span></button>
   <button data-tool="erase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20h12"/><path d="M5 14l8-8 6 6-8 8H9z"/></svg><span>Eraser</span></button>
   <button data-tool="clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="6" cy="6" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/></svg><span>Quote</span></button>
@@ -372,6 +395,7 @@
   </div>
   <div class="row"><span>Reading lamp<small>Warm light in the middle, darker edges</small></span>
     <div class="seg" id="lampSeg"><button data-v="off">Off</button><button data-v="on">On</button><button data-v="auto">Evening</button></div></div>
+  <div class="row"><span>Your name<small>Written on the bookplate inside every book</small></span><input id="ownerName" maxlength="40" style="width:46%;background:rgba(243,234,216,.08);color:inherit;border:1px solid rgba(243,234,216,.2);border-radius:10px;padding:8px 10px;font:inherit"></div>
   <label class="row sw"><span>Light follows the phone’s tilt</span><input type="checkbox" id="optTilt"><i></i></label>
   <div class="row"><span>Brightness</span><input type="range" id="bright" min="0.35" max="1" step="0.01"></div>
   <div class="row"><span>Warmth</span><input type="range" id="warm" min="0" max="1" step="0.01"></div>
@@ -384,6 +408,9 @@
   <div class="row"><span>Turn every</span><input type="range" id="autoSec" min="5" max="180" step="5"><span class="val" id="autoVal"></span></div>
   <div class="row"><span>Daily goal</span><input type="range" id="goal" min="5" max="100" step="5"><span class="val" id="goalVal"></span></div>
   <label class="row sw"><span>Read in 3D<small>The open book lies on the table; drag up or down to tilt it</small></span><input type="checkbox" id="optRead3d"><i></i></label>
+  <label class="row sw"><span>Page margins in 3D<small>Show the whole printed page, white margins included</small></span><input type="checkbox" id="optR3m"><i></i></label>
+  <label class="row sw"><span>My thumbs on the pages<small>In 3D, your thumbs hold the book at the bottom corners</small></span><input type="checkbox" id="optThumbs"><i></i></label>
+  <label class="row sw"><span>Pure book<small>No page numbers, goals or messages while reading: only the book</small></span><input type="checkbox" id="optPure"><i></i></label>
   <label class="row sw"><span>Closed book in 3D<small>Turn it, zoom in and open it in 3D</small></span><input type="checkbox" id="optBook3d"><i></i></label>
   <label class="row sw"><span>Opening animation<small>The book starts closed, then the cover opens</small></span><input type="checkbox" id="optOpen"><i></i></label>
   <div class="sec">Sound &amp; device</div>
@@ -430,7 +457,7 @@ if (!lib) { $('empty').querySelector('p').textContent = 'Could not load the PDF 
 lib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
 /* ================= settings ================= */
-const DEF = {read3d:false, book3d:true, lamp:'off', tilt:false, theme:'day', bright:1, warm:0, crop:true, half:false, spread:true, bookView:true, bg:'wood', openAnim:true, awake:true, sound:true, vibe:true, autoSec:30, goal:20};
+const DEF = {thumbs:false, owner:'', pure:false, r3margins:true, read3d:false, book3d:true, lamp:'off', tilt:false, theme:'day', bright:1, warm:0, crop:true, half:false, spread:true, bookView:true, bg:'wood', openAnim:true, awake:true, sound:true, vibe:true, autoSec:30, goal:20};
 const S = Object.assign({}, DEF);
 try { Object.assign(S, JSON.parse(localStorage.getItem('rtl-settings') || '{}')); } catch(_){}
 function saveS(){ try { localStorage.setItem('rtl-settings', JSON.stringify(S)); } catch(_){} }
@@ -520,7 +547,7 @@ function computeAspect(){
 
 /* ================= layout ================= */
 function freeCanvas(c){ if (c && c.width) { c.width = 0; c.height = 0; } }
-function invalidate(){ gen++; cache.forEach(freeCanvas); lowCache.forEach(freeCanvas); zoomHi.forEach(freeCanvas); cache.clear(); lowCache.clear(); pending.clear(); zoomHi.clear(); bgKey = ''; }
+function invalidate(){ r3Full.forEach(freeCanvas); r3Full.clear(); gen++; cache.forEach(freeCanvas); lowCache.forEach(freeCanvas); zoomHi.forEach(freeCanvas); cache.clear(); lowCache.clear(); pending.clear(); zoomHi.clear(); bgKey = ''; }
 function layout(){
   dpr = Math.min(window.devicePixelRatio || 1, 3);
   const w = innerWidth, h = innerHeight;
@@ -770,6 +797,12 @@ function drawStrokes(rc){
       ctx.strokeStyle = night ? 'rgba(150,120,0,0.25)' : 'rgba(250,205,30,0.30)'; ctx.lineWidth = w0*0.28;
       trace(s, -w0*0.38); ctx.stroke(); trace(s, w0*0.36); ctx.stroke();      // uneven, slightly darker edges
       ctx.restore();
+    } else if (s.t === 'pencil') {                  // graphite: grey, thin, a little grainy
+      ctx.save(); ctx.globalCompositeOperation = night ? 'screen' : 'multiply'; ctx.lineCap = 'round';
+      const w0 = Math.max(1, fullH*0.0019);
+      ctx.strokeStyle = night ? 'rgba(170,170,175,0.55)' : 'rgba(80,80,88,0.62)'; ctx.lineWidth = w0; trace(s, 0); ctx.stroke();
+      ctx.strokeStyle = night ? 'rgba(170,170,175,0.25)' : 'rgba(60,60,66,0.28)'; ctx.lineWidth = w0*0.5; ctx.setLineDash([w0*1.5, w0*1.1]); trace(s, w0*0.35); ctx.stroke(); ctx.setLineDash([]);
+      ctx.restore();
     } else {
       ctx.strokeStyle = '#d23b2a'; ctx.lineWidth = Math.max(1.5, fullH*0.0028); trace(s, 0); ctx.stroke();
     }
@@ -781,7 +814,8 @@ function drawSlot(key, ox){
   if (!key) return;
   const c = (Z.s > 1.001 && zoomHi.get(key)) || img(key);
   const rc = fitRect(key, ox);
-  if (c) { if (BEND()) drawImgBent(c, rc); else drawImg(c, rc); showThrough(rc, ox); paperFinish(ox); }
+  if (c) { if (BEND()) drawImgBent(c, rc); else drawImg(c, rc); showThrough(rc, ox); paperFinish(ox);
+    if (ageK() > 0.02) { ctx.save(); ctx.beginPath(); ctx.rect(ox, 0, R.w, R.h); ctx.clip(); ctx.translate(ox, 0); pageAging(ctx, R.w, R.h, rc.page); ctx.restore(); } }
   else drawText(t('Loading…'), ox + R.w/2, R.h/2);
   drawStrokes(rc); drawNotes(rc); ribbon(rc, ox); dogEar(rc, ox);
 }
@@ -1290,6 +1324,8 @@ function v3SpineCanvas(board, ratio){                // the spine: leather, gold
     const gold = S.theme === 'night' ? '#a8894f' : '#d9b65e';
     x.fillStyle = gold; [0.04, 0.058, 0.942, 0.96].forEach(v => x.fillRect(0, H*v, W, Math.max(3, H*0.005)));
     [0.13, 0.87].forEach(v => { x.fillStyle = 'rgba(0,0,0,0.35)'; x.fillRect(0, H*v + 3, W, 6); x.fillStyle = shadeHex2(board, 0.2); x.fillRect(0, H*v, W, 5); });   // raised ribs
+    const nc = Math.min(9, Math.floor(((curMeta && curMeta.opens) || 0)/6) + (curMeta && curMeta.aged ? 6 : 0)), rc2 = seeded(7);
+    for (let i=0; i<nc; i++) { const yy = H*(0.2 + rc2()*0.6); x.fillStyle = 'rgba(255,255,255,0.13)'; x.fillRect(W*0.1, yy, W*0.8, 2); x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(W*0.1, yy + 2, W*0.8, 2); }   // a well-read spine is creased
     const title = curMeta ? bookName(curMeta) : '';
     if (!title) return;
     const ar = /[؀-ۿ]/.test(title);
@@ -1319,7 +1355,7 @@ function v3Build(T3){
   const r = v3d, w = 1, h = R.h/R.w, n = nPages || 100;
   const t = Math.max(0.012, bookThickness()), bt = 0.026, oh = 0.03;
   const sg = LTR() ? -1 : 1, board = v3BoardColor(), gilt = mushafOn();
-  r.dims = {w, h, t, sg};
+  r.dims = {w, h, t, sg}; r.ribs = [];
   const aniso = r.ren.capabilities.getMaxAnisotropy();
   const tex = c => { const tx = new T3.CanvasTexture(c); tx.encoding = T3.sRGBEncoding; tx.anisotropy = aniso; r.texs.push(tx); return tx; };
   const mat = o => { const m = new T3.MeshStandardMaterial(Object.assign({roughness: 0.6, metalness: 0.04}, o)); r.mats.push(m); return m; };
@@ -1328,6 +1364,8 @@ function v3Build(T3){
   const coverC = lastCover && lastCover.width ? lastCover : makeCoverArt(null);
   const backC = lastBack && lastBack.width ? lastBack : makeBackArt();
   const ebT = tex(ebru());
+  const plT = tex(plateCanvas(h));                  // the bookplate on the front pastedown
+  if (sg < 0) { plT.wrapS = T3.RepeatWrapping; plT.repeat.x = -1; plT.offset.x = 1; }
   const paper = () => tex(v3Canvas(64, 64, (x, W, H)=>{ x.fillStyle = T().paper; x.fillRect(0, 0, W, H); }));
   const edgeM = c => mat({map: tex(c), roughness: gilt ? 0.38 : 0.95, metalness: gilt ? 0.3 : 0});
   r.pageM = mat({map: paper(), roughness: 0.9}); r.lastM = mat({map: paper(), roughness: 0.9});
@@ -1336,26 +1374,39 @@ function v3Build(T3){
   // the block of pages
   const bw = w*0.975, topM = edgeM(v3EdgeCanvas(false, gilt)), sideM = edgeM(v3EdgeCanvas(true, gilt));
   const bm = [sideM, sideM, topM, topM, r.pageM, r.lastM]; bm[sg > 0 ? 0 : 1] = boardM;
-  const block = new T3.Mesh(geo(bw, h, t), bm); block.position.x = sg*(w - bw)/2; g.add(block); all.push(block);
+  const block = new T3.Mesh(geo(bw, h, t), bm); block.position.x = sg*(w - bw)/2; g.add(block); all.push(block); r.block = block; r.dims.t = t;
+  // a paper bookmark sticking out of the top where you stopped reading
+  if (curMeta && (curMeta.page || 1) > 1 && !isDone(curMeta)) {
+    const depth = Math.min(0.96, Math.max(0.04, ((curMeta.page || 1) - 1)/Math.max(1, n - 1)));
+    const slipC = v3Canvas(128, 320, (x, W2, H2)=>{ x.fillStyle = '#efe4c8'; x.fillRect(0, 0, W2, H2);
+      for (let i=0; i<400; i++) { x.fillStyle = 'rgba(120,90,40,' + Math.random()*0.06 + ')'; x.fillRect(Math.random()*W2, Math.random()*H2, 2, 2); }
+      x.strokeStyle = '#8a5a2b'; x.lineWidth = 3; x.strokeRect(10, 10, W2 - 20, H2 - 20);
+      x.fillStyle = '#8a5a2b'; x.beginPath(); x.arc(W2/2, 60, 16, 0, Math.PI*2); x.fill(); x.fillStyle = '#efe4c8'; x.beginPath(); x.arc(W2/2, 60, 7, 0, Math.PI*2); x.fill(); });
+    const slipT = tex(slipC), slipM = mat({map: slipT, roughness: 0.9}), sgeo = geo(0.13, 0.34, 0.003);
+    const slip = new T3.Mesh(sgeo, slipM); slip.position.set(-sg*0.12, h/2 + 0.06, t/2 - depth*t); slip.rotation.z = sg*0.04;
+    slip.userData.page = curMeta.page; slip.castShadow = true; g.add(slip); r.ribs.push(slip);
+  }
   // the two boards, each hinged at the spine
   const bwid = w + oh;
   const board3 = front => {
     const m = new T3.Mesh(geo(bwid, h + 2*oh, bt), [boardM, boardM, boardM, boardM,
       front ? mat({map: tex(coverC), roughness: 0.55}) : mat({map: ebT, roughness: 0.8}),
-      front ? mat({map: ebT, roughness: 0.8}) : mat({map: tex(backC), roughness: 0.55})]);
-    m.userData.inner = front ? 5 : 4;                 // the endpaper side, shown only when that board is opened
+      front ? mat({map: plT, roughness: 0.8}) : mat({map: tex(backC), roughness: 0.55})]);
+    m.userData.inner = front ? 5 : 4;
+    if (front) r.coverM = m.material[4]; else r.backM = m.material[5];                 // the endpaper side, shown only when that board is opened
     m.position.x = -sg*bwid/2; all.push(m);
     const pv = new T3.Group(); pv.position.set(sg*w/2, 0, (front ? 1 : -1)*(t/2 + bt/2)); pv.add(m); g.add(pv); return pv;
   };
   r.frontB = board3(true); r.backB = board3(false);
-  r.ebM = mat({map: ebT, roughness: 0.8}); r.boardM = boardM;
+  r.ebM = mat({map: plT, roughness: 0.8}); r.ebBack = mat({map: ebT, roughness: 0.8}); r.boardM = boardM;
   r.backB.children[0].material[4] = boardM;          // under the pages you see the board, not the endpaper
   // the spine
   const sw = t + 2*bt, sm = [boardM, boardM, boardM, boardM, boardM, boardM];
-  sm[sg > 0 ? 0 : 1] = mat({map: tex(v3SpineCanvas(board, (h + 2*oh)/sw)), roughness: 0.5});
+  sm[sg > 0 ? 0 : 1] = mat({map: tex(v3SpineCanvas(board, (h + 2*oh)/sw)), roughness: 0.5}); r.spineM = sm[sg > 0 ? 0 : 1];
+  r.jacketMaps = {front: r.coverM ? null : null, board};
+  r.dims2 = {h, oh, sw, board};
   const sp = new T3.Mesh(geo(bt*1.3, h + 2*oh, sw), sm); sp.position.x = sg*(w/2 + bt*0.65); g.add(sp); all.push(sp);
   // bookmark ribbons hanging out at the bottom
-  r.ribs = [];
   ((curMeta && curMeta.bookmarks) || []).slice(-3).forEach((b, i)=>{
     const m = new T3.Mesh(geo(0.045, 0.3, 0.004), mat({color: new T3.Color(RIB[b.color] || RIB.red), roughness: 0.4}));
     m.position.set(sg*(w/2 - 0.18 - i*0.075), -h/2 - 0.1, t*0.25 - i*t*0.2); m.rotation.z = sg*0.05*(i - 1);
@@ -1395,6 +1446,7 @@ async function open3D(o){
   $('v3lib').innerHTML = $('libBtn').innerHTML;
   el.classList.remove('fade'); el.classList.add('on');
   setBars(false); v3Resize(); v3Wire(cv);
+  $('v3jacket').style.display = curMeta && curMeta.coverArt ? '' : 'none'; if (curMeta && curMeta.coverArt) v3Jacket(false);
   // the book lifts up from the table
   const q1 = v3d.book.quaternion.clone(), q0 = v3Pose(v3d.back ? 'back' : 'front');
   if (!RM) { v3d.book.quaternion.copy(q0); v3d.zoom = 0.9; v3Tween(700, e => { v3d.book.quaternion.copy(q0).slerp(q1, e); v3d.zoom = 0.9 + 0.1*e; }); }
@@ -1410,12 +1462,13 @@ function v3Resize(){
   r.dist = Math.max(bh/2/tf, bw/2/(tf*r.cam.aspect));
   r.dirty = true;
 }
-function v3Tween(d, step, done){ v3d.tw = {t0: performance.now(), d, step, done}; v3d.dirty = true; }
+function v3Tween(d, step, done, ease){ v3d.tw = {t0: performance.now(), d, step, done, ease}; v3d.dirty = true; }
+const stiffEase = t => t < 0.32 ? 0.1*easeInOut(t/0.32) : 0.1 + 0.9*easeInOut((t - 0.32)/0.68);   // a new book resists for a moment, then gives
 function v3Loop(now){
   const r = v3d; if (!r) return;
   r.raf = requestAnimationFrame(v3Loop);
   if (r.tw) {
-    const tw = r.tw, k = RM ? 1 : Math.min(1, (now - tw.t0)/tw.d); tw.step(easeInOut(k)); r.dirty = true;
+    const tw = r.tw, k = RM ? 1 : Math.min(1, (now - tw.t0)/tw.d); tw.step((tw.ease || easeInOut)(k)); r.dirty = true;
     if (k >= 1 && r.tw === tw) { r.tw = null; if (tw.done) tw.done(); }
   }
   if (!r.pts.size && Math.abs(r.spin.x) + Math.abs(r.spin.y) > 0.0003) { v3Rot(r.spin.x, r.spin.y); r.spin.x *= 0.92; r.spin.y *= 0.92; }
@@ -1474,7 +1527,12 @@ function v3Tap(x, y){
   const hit = rc.intersectObject(r.book, true)[0];
   const now = performance.now();
   if (!hit) { if (now - v3LastTap < 350) v3Go('reset'); v3LastTap = now; return; }
-  if (hit.object.userData.page) { v3OpenBook(hit.object.userData.page); return; }   // pulled a ribbon
+  if (hit.object.userData.page) { v3OpenBook(hit.object.userData.page); return; }   // pulled a ribbon or the paper bookmark
+  if (hit.object === r.block) {                       // gripped the pages themselves: open the book at that depth
+    const lp = r.block.worldToLocal(hit.point.clone()), tt = r.dims.t, depth = Math.max(0, Math.min(1, (tt/2 - lp.z)/tt));
+    const onFace = Math.abs(lp.z) < tt/2 - 0.002;
+    if (onFace) { v3OpenBook(Math.max(1, Math.round(1 + depth*(nPages - 1)))); return; }
+  }
   v3OpenBook();
 }
 function v3Go(name){
@@ -1503,10 +1561,10 @@ function v3OpenBook(page){
   const useBack = r.back && seeBack && !page;          // closed at the end and you are looking at the back: open the back cover
   const pv = useBack ? r.backB : r.frontB, pg = realPage(cur);
   r.frontB.children[0].material[5] = useBack ? r.boardM : r.ebM;
-  r.backB.children[0].material[4] = useBack ? r.ebM : r.boardM;
+  r.backB.children[0].material[4] = useBack ? r.ebBack : r.boardM;
   v3SetPage(useBack ? r.lastM : r.pageM, pg);
   const q0 = r.book.quaternion.clone(), q1 = v3Pose(useBack ? 'back' : 'front'), p0 = r.book.position.clone(), z0 = r.zoom, O = new T3.Vector3();
-  const target = (useBack ? -1 : 1)*sg*Math.PI*0.985;
+  const target = (useBack ? -1 : 1)*sg*Math.PI*0.985, stiff = firstOpening; firstOpening = false;
   $('v3d').classList.add('opening');
   // where the page sits on screen once you are reading, so the 3D page lands exactly on it
   const tf = Math.tan(r.cam.fov*Math.PI/360), H = innerHeight, W = innerWidth, yo = -0.05*(R.h/R.w);
@@ -1515,10 +1573,10 @@ function v3OpenBook(page){
   const cxs = (R.x || 0) + (rightSide ? 1.5 : 0.5)*R.w, cys = (R.y || 0) + R.h/2;
   const P1 = new T3.Vector3((cxs - W/2)*wpp, yo + (H/2 - cys)*wpp, 0);
   v3Tween(520, e=>{ r.book.quaternion.copy(q0).slerp(q1, e); r.book.position.lerpVectors(p0, O, e); r.zoom = z0 + (0.9 - z0)*e; }, ()=>{
-    coverSound('open');
-    v3Tween(1300, e=>{ pv.rotation.y = target*e; }, ()=>{
+    coverSound('open'); if (stiff) spineCrack();
+    v3Tween(stiff ? 2200 : 1300, e=>{ pv.rotation.y = target*e; }, ()=>{
       v3Tween(450, e=>{ r.zoom = 0.9 + (zEnd - 0.9)*e; r.book.position.lerpVectors(O, P1, e); }, ()=> setTimeout(v3Finish, 60));
-    });
+    }, stiff ? stiffEase : undefined);
   });
   feedback();
 }
@@ -1542,7 +1600,19 @@ function close3D(){
   draw();
 }
 $('v3open').onclick = ()=>v3OpenBook();
-document.querySelectorAll('#v3views button').forEach(b => b.onclick = ()=>v3Go(b.dataset.v));
+document.querySelectorAll('#v3views button').forEach(b => b.onclick = ()=>{ if (b.dataset.v === 'jacket') v3Jacket(); else v3Go(b.dataset.v); });
+function v3Jacket(on){                              // take the printed dust jacket off, or put it back on
+  const r = v3d; if (!r || !curMeta || !curMeta.coverArt) return;
+  if (on === undefined) { curMeta.jacket = curMeta.jacket === false; saveMeta(); feedback(); turnSound(0.3, 0.8, 'next', 'lift'); }
+  const T3 = r.T3, onJ = curMeta.jacket !== false, d = r.dims2;
+  if (!r.cloth) { const cc = '#2c3a4f', mk = c => { const tx = new T3.CanvasTexture(c); tx.encoding = T3.sRGBEncoding; r.texs.push(tx); return tx; };
+    r.cloth = {front: mk(clothCanvas(d.h, cc, bookName(curMeta), true)), back: mk(clothCanvas(d.h, cc, '', false)), spine: mk(v3SpineCanvas(cc, (d.h + 2*d.oh)/d.sw)), color: cc,
+      jf: r.coverM.map, jb: r.backM.map, js: r.spineM.map}; }
+  r.coverM.map = onJ ? r.cloth.jf : r.cloth.front; r.backM.map = onJ ? r.cloth.jb : r.cloth.back; r.spineM.map = onJ ? r.cloth.js : r.cloth.spine;
+  r.boardM.color = new T3.Color(onJ ? d.board : r.cloth.color);
+  [r.coverM, r.backM, r.spineM, r.boardM].forEach(m => m.needsUpdate = true);
+  $('v3jacket').textContent = t(onJ ? 'Remove jacket' : 'Put jacket on'); r.dirty = true;
+}
 $('v3lib').onclick = ()=>{ close3D(); showLibraryNow(); };
 /* ================= reading in 3D: the open book on the table ================= */
 let r3 = null, r3Starting = false;
@@ -1578,7 +1648,7 @@ async function startR3(){
   scene.add(key);
   const table = new T3.Mesh(new T3.PlaneGeometry(30, 30), new T3.ShadowMaterial({opacity: 0.3}));
   table.receiveShadow = true; scene.add(table); r3.geos.push(table.geometry); r3.mats.push(table.material);
-  r3Build();
+  r3Build(); r3MakeThumbs();
   r3Locate();
   document.body.classList.add('r3on');
   r3Resize(); r3Wire();
@@ -1601,7 +1671,7 @@ function r3Surf(d, ts){                               // height of the top page 
 }
 const r3D = i => Math.pow(i, 1.7);                     // more points near the spine, where the paper bends
 function r3Build(){
-  const r = r3, T3 = r.T3, h = R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
+  const r = r3, T3 = r.T3, h = (S.r3margins !== false && pageW > 0) ? pageH/pageW : R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
   r.h = h; r.T = Math.max(0.006, bookThickness()); r.bt = 0.022; r.sg = sg;
   const g = new T3.Group(); g.scale.x = sg; r.scene.add(g); r.g = g;    // logical (Arabic) layout, mirrored for English books
   const mat = o => { const q = Object.assign({}, o); delete q.roughness; delete q.metalness;   // matte paper: light computed per point of the mesh, cheap on phones
@@ -1632,6 +1702,33 @@ function r3Build(){
   const f = new T3.Mesh(sg2, r.pageM.F), b = new T3.Mesh(sg2, r.pageM.B);
   f.castShadow = b.castShadow = true; f.visible = b.visible = false; g.add(f); g.add(b); r.sheet = [f, b];
 }
+function r3MakeThumbs(){                               // two thumbs holding the bottom corners of the book
+  const r = r3, T3 = r.T3, skin = new T3.MeshLambertMaterial({color: 0xc58a6c}), nail = new T3.MeshLambertMaterial({color: 0xe9c2b4, emissive: 0x1a0c08}), knuckle = new T3.MeshLambertMaterial({color: 0xb87c5f});
+  r.mats.push(skin, nail, knuckle);
+  // a thumb: a long rounded body that narrows to the tip, a flat nail, and the joint behind it
+  const prof = []; for (let i=0; i<=16; i++) { const v = i/16, y = -0.5 + v, w = Math.sin(Math.min(1, v*1.15)*Math.PI*0.5)*(1 - 0.28*v) + 0.02; prof.push(new T3.Vector2(Math.max(0.001, w*0.5), y)); }
+  const body = new T3.LatheGeometry(prof, 24), g2 = new T3.SphereGeometry(1, 18, 12); r.geos.push(body, g2);
+  r.thumbs = [-1, 1].map(side => {
+    const t = new T3.Group();
+    const f = new T3.Mesh(body, skin); f.scale.set(0.1, 0.2, 0.055); f.castShadow = true; t.add(f);
+    const n = new T3.Mesh(g2, nail); n.scale.set(0.024, 0.032, 0.008); n.position.set(0, 0.062, 0.021); t.add(n);
+    const k = new T3.Mesh(g2, knuckle); k.scale.set(0.05, 0.035, 0.026); k.position.set(0, -0.045, 0.004); t.add(k);
+    t.rotation.z = -side*0.42; t.rotation.x = -0.18; t.userData.side = side; t.visible = false; r.g.add(t);
+    return t;
+  });
+}
+function r3PlaceThumbs(){
+  const r = r3; if (!r.thumbs) return;
+  const on = !!S.thumbs;
+  r.thumbs.forEach(t => {
+    const side = t.userData.side, ts = side > 0 ? r.tsR : r.tsL;
+    const reading = r.both || (side > 0 ? r.side === 'first' : r.side === 'second');
+    t.visible = on && reading;
+    let lift = 0;
+    if (r.turn) { const p = r.sheetP; lift = (r.turn.dir === 'next' ? side < 0 : side > 0) ? Math.sin(Math.PI*p)*0.05 : 0; }   // the thumb lets go of the page you turn
+    t.position.set(side*1.0, -r.h/2 + 0.02, r.bt + r3Surf(0.98, ts) + 0.028 + lift);
+  });
+}
 function r3StackGeo(ts){                               // a block of pages, curving down into the gutter
   const T3 = r3.T3, sh = new T3.Shape(), N = 40, t2 = Math.max(ts, 0.002);
   sh.moveTo(0, 0); sh.lineTo(1, 0);
@@ -1654,12 +1751,12 @@ function r3PageGeo(side, ts){                          // the top page lying on 
 function r3Stacks(){                                   // (re)build both page blocks for where you are in the book
   const r = r3, T3 = r.T3, n = nPages || 1;
   const old = r.stackMeshes || [];
-  const fr = Math.max(0, Math.min(1, r.first/n)), tsR = r.T*fr, tsL = r.T*(1 - fr);
+  const fr = Math.max(0.0005, Math.min(1, r.first/n)), tsR = r.T*fr, tsL = r.T*(1 - fr);
   if (r.stackMeshes && r.stackMeshes.length && Math.abs(tsR - r.tsR) < 0.0025) return;   // too small to see: keep the old block
   r.tsR = tsR; r.tsL = tsL;
   const fresh = [];
   [[1, r.tsR, r.pageM.R], [-1, r.tsL, r.pageM.L]].forEach(([side, ts, pm])=>{
-    const blk = new T3.Mesh(r3StackGeo(ts), [r.capM, r.sideM]); blk.scale.x = side; blk.position.z = r.bt; blk.receiveShadow = true;
+    const blk = new T3.Mesh(r3StackGeo(ts), [r.capM, r.sideM]); blk.scale.x = side; blk.position.z = r.bt; blk.receiveShadow = true; blk.userData.stack = side; blk.userData.ts = ts;
     const pg = new T3.Mesh(r3PageGeo(side, ts), pm); pg.position.z = r.bt; pg.receiveShadow = true;
     r.g.add(blk); r.g.add(pg); fresh.push(blk, pg);
   });
@@ -1674,30 +1771,130 @@ function r3Locate(){                                   // pick up the reader's c
   r.view = cur; r.camX = r.side === 'first' ? 0.5 : -0.5;
   r3Stacks(); r3Fill();
 }
-function r3Canvas(page){                               // the printed page, in the reading theme
+const r3Full = new Map(), r3FullPending = new Set();
+function r3Source(page){                              // {c, r}: the page picture and the part of the page it shows
+  if (S.r3margins !== false) {
+    const c = r3Full.get(page);
+    if (c && c.width) return {c, r: FULL, hi: true};
+    r3RenderFull(page);
+    const k = keyFor(page), lo = cache.get(k) || lowCache.get(k);   // meanwhile, the trimmed picture we already have
+    return lo && lo.width ? {c: lo, r: regionOf(k), hi: false} : null;
+  }
   const k = keyFor(page), c = cache.get(k) || lowCache.get(k);
   if (!c || !c.width) { load(k); return null; }
-  return c;
+  return {c, r: regionOf(k), hi: c === cache.get(k)};
+}
+async function r3RenderFull(page){                     // the whole printed page, margins and all
+  if (!pdf || r3FullPending.has(page) || page < 1 || page > nPages) return;
+  r3FullPending.add(page); const g = gen;
+  try {
+    const pg = await pdf.getPage(page), v1 = pg.getViewport({scale: 1});
+    const pxW = Math.min(1600, Math.round(innerWidth*Math.min(devicePixelRatio || 1, 2)*(innerWidth > innerHeight ? 0.6 : 1.1)));
+    const vp = pg.getViewport({scale: pxW/v1.width});
+    const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const cx = c.getContext('2d', {willReadFrequently: true}); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);
+    await pg.render({canvasContext: cx, viewport: vp}).promise;
+    if (g !== gen) return;
+    if (curMeta && curMeta.enhance) enhanceImg(c, cx);
+    applyTheme(c, cx);
+    r3Full.set(page, c);
+    if (r3Full.size > 14) { const [k0, c0] = r3Full.entries().next().value; freeCanvas(c0); r3Full.delete(k0); }
+    if (r3) { r3.missing = true; r3.dirty = true; r3Fill(); }
+  } catch(e) { console.error(e); }
+  finally { r3FullPending.delete(page); }
+}
+function r3Canvas(page){ const q = r3Source(page); return q && q.c; }
+function r3Sig(page){                                  // anything that changes how this page looks
+  const m = curMeta || {};
+  const notes = (m.notes || []).filter(n => n.page === page).map(n => n.id + n.x.toFixed(3) + n.y.toFixed(3) + n.text.length + (n.rot || 0)).join();
+  const st = strokeList(page), last = st[st.length - 1];
+  const bms = (m.bookmarks || []).filter(b => b.page === page).map(b => b.color).join();
+  return [S.theme, st.length, last ? last.pts.length : 0, notes, m.ears && m.ears[page] ? 1 : 0, bms, paperOf(), (typeof pageAgeSig === 'function') ? pageAgeSig() : ''].join('|');
+}
+let r3Grain = null;
+function r3Compose(page, src){                         // print + paper + show-through + ink you added
+  const {c, r} = src, W = c.width, H = c.height, night = S.theme === 'night';
+  const out = v3Canvas(W, H, x => x.drawImage(c, 0, 0));
+  const x = out.getContext('2d'), fx = f => (f - r.x0)/(r.x1 - r.x0)*W, fy = f => (f - r.y0)/(r.y1 - r.y0)*H, fullH = H/(r.y1 - r.y0);
+  let backOK = true;
+  if (!night) {                                       // the other side of the leaf shows through a little
+    const bp = isRightPage(page) ? page + 1 : page - 1, k = paperK().show*1.15;
+    if (bp >= 1 && bp <= nPages && k > 0) {
+      const b = r3Source(bp);
+      if (b) { x.save(); x.globalAlpha = k; x.globalCompositeOperation = 'multiply'; x.translate(W, 0); x.scale(-1, 1); x.drawImage(b.c, 0, 0, W, H); x.restore(); backOK = b.hi; }
+      else backOK = false;
+    }
+    x.save(); x.globalCompositeOperation = 'multiply';
+    if (S.theme === 'day') { x.fillStyle = '#fcf7ec'; x.fillRect(0, 0, W, H); }
+    if (!r3Grain) { r3Grain = v3Canvas(160, 160, (g, w, h)=>{ const id = g.createImageData(w, h), d = id.data;
+      for (let i=0; i<w*h; i++) { const v = 238 + Math.random()*17 - (Math.random() < 0.012 ? 28 : 0); d[i*4] = v; d[i*4+1] = v - 2; d[i*4+2] = v - 7; d[i*4+3] = 255; } g.putImageData(id, 0, 0); }); }
+    x.globalAlpha = 0.55; x.fillStyle = x.createPattern(r3Grain, 'repeat'); x.fillRect(0, 0, W, H);
+    x.restore();
+  }
+  if (typeof pageAging === 'function') pageAging(x, W, H, page);
+  // your highlights and pencil/pen lines
+  for (const st of strokeList(page)) {
+    if (!st.pts.length) continue;
+    const tr = dy => { x.beginPath(); st.pts.forEach((q, i)=>{ const px = fx(q[0]), py = fy(q[1]) + dy; i ? x.lineTo(px, py) : x.moveTo(px, py); }); if (st.pts.length === 1) x.lineTo(fx(st.pts[0][0]) + 0.5, fy(st.pts[0][1]) + dy); };
+    x.save(); x.lineJoin = 'round';
+    if (st.t === 'hl') { x.globalCompositeOperation = night ? 'screen' : 'multiply'; const w0 = fullH*0.017; x.lineCap = 'butt';
+      x.strokeStyle = night ? 'rgba(150,120,0,0.55)' : 'rgba(255,222,60,0.58)'; x.lineWidth = w0; tr(0); x.stroke(); }
+    else if (st.t === 'pencil') { x.globalCompositeOperation = night ? 'screen' : 'multiply'; x.lineCap = 'round'; const w0 = Math.max(1, fullH*0.0019);
+      x.strokeStyle = night ? 'rgba(170,170,175,0.55)' : 'rgba(80,80,88,0.62)'; x.lineWidth = w0; tr(0); x.stroke(); }
+    else { x.lineCap = 'round'; x.strokeStyle = '#d23b2a'; x.lineWidth = Math.max(1.5, fullH*0.0028); tr(0); x.stroke(); }
+    x.restore();
+  }
+  // handwritten notes in blue
+  for (const n of ((curMeta && curMeta.notes) || []).filter(n => n.page === page)) {
+    const fs = Math.max(13, fullH*0.032), lh = fs*1.22, maxW = W*0.6, ar = /[؀-ۿ]/.test(n.text);
+    x.save(); x.font = fs + 'px NoteHand, cursive';
+    const lines = [];
+    for (const para of String(n.text).split('\n')) { let line = '';
+      for (const w of para.split(/\s+/).filter(Boolean)) { const tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > maxW && line) { lines.push(line); line = w; } else line = tt; }
+      lines.push(line); }
+    const bw = Math.max(...lines.map(l => x.measureText(l).width), 10);
+    x.translate(fx(n.x), fy(n.y)); x.rotate((n.rot || 0)*Math.PI/180);
+    x.textBaseline = 'top'; x.direction = ar ? 'rtl' : 'ltr'; x.textAlign = ar ? 'right' : 'left';
+    x.globalCompositeOperation = night ? 'source-over' : 'multiply'; x.fillStyle = night ? '#8fb0ff' : 'rgba(25,64,160,0.93)';
+    lines.forEach((l, i)=>x.fillText(l, ar ? bw/2 : -bw/2, i*lh));
+    x.restore();
+  }
+  const outerRight = isRightPage(page) !== LTR();      // which side of the picture is the outer edge of the leaf
+  // a bookmark ribbon lying across the page near the binding
+  const bms = ((curMeta && curMeta.bookmarks) || []).filter(b => b.page === page);
+  bms.slice(-2).forEach((bm, i)=>{
+    const col = RIB[bm.color] || RIB.red, rw = W*0.032, gx = outerRight ? W*(0.1 + i*0.05) : W*(0.9 - i*0.05) - rw;
+    const g = x.createLinearGradient(gx, 0, gx + rw, 0);
+    g.addColorStop(0, shadeHex(col, -0.3)); g.addColorStop(0.45, shadeHex(col, 0.25)); g.addColorStop(1, shadeHex(col, -0.35));
+    x.save(); x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = rw*0.4; x.shadowOffsetX = rw*0.15;
+    x.fillStyle = g; x.beginPath(); x.moveTo(gx, 0); x.lineTo(gx + rw, 0); x.lineTo(gx + rw*1.6, H); x.lineTo(gx + rw*0.6, H); x.closePath(); x.fill(); x.restore();
+  });
+  // a folded corner
+  if (curMeta && curMeta.ears && curMeta.ears[page]) {
+    const sz = W*0.1, cx0 = outerRight ? W : 0, d = outerRight ? -1 : 1;
+    x.save(); x.fillStyle = night ? '#0e0d0c' : 'rgba(40,28,18,0.55)';
+    x.beginPath(); x.moveTo(cx0, 0); x.lineTo(cx0 + d*sz, 0); x.lineTo(cx0, sz); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(cx0 + d*sz, 0); x.lineTo(cx0, sz); x.lineTo(cx0 + d*sz, sz); x.closePath();
+    x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = sz*0.08; x.shadowOffsetY = sz*0.03; x.fillStyle = T().paper; x.fill(); x.restore();
+  }
+  return {c: out, backOK};
 }
 function r3TexFor(page, flip){
   const r = r3, T3 = r.T3, n = nPages || 1;
-  if (page < 1 || page > n) return {t: r.ebT, ok: true};          // past the last leaf: the inside of the cover
-  const c = r3Canvas(page); if (!c) return {t: r.paperT, ok: false};
-  const fl = !!flip !== (r.sg < 0), key = page + '|' + fl + '|' + S.theme;
+  if (page < 1) return {t: r3Plate(!rightP(page)), ok: true};    // before page 1: the pastedown with the bookplate, and the blank first leaf
+  if (page > n) return {t: r.ebT, ok: true};
+  const src = r3Source(page); if (!src) return {t: r.paperT, ok: false};
+  const fl = !!flip !== (r.sg < 0), key = page + '|' + fl, sig = r3Sig(page);
   const old = r.tex.get(key);
-  if (old && old.src === c) return {t: old.t, ok: c === cache.get(keyFor(page))};
-  let src = c;
-  if (S.theme !== 'day') {                            // themed copy, like the flat reader
-    const f = {night: 'invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9)', sepia: 'sepia(0.45) brightness(0.97)', dim: 'brightness(0.8) sepia(0.2)'}[S.theme];
-    if (f) src = v3Canvas(c.width, c.height, x => { x.filter = f; x.drawImage(c, 0, 0); });
-  }
-  const tx = new T3.CanvasTexture(src); tx.encoding = T3.sRGBEncoding; tx.anisotropy = Math.min(8, r.ren.capabilities.getMaxAnisotropy());
+  if (old && old.src === src.c && old.sig === sig && old.backOK) return {t: old.t, ok: src.hi};
+  const comp = r3Compose(page, src);
+  const tx = new T3.CanvasTexture(comp.c); tx.encoding = T3.sRGBEncoding; tx.anisotropy = Math.min(8, r.ren.capabilities.getMaxAnisotropy());
   if (fl) { tx.wrapS = T3.RepeatWrapping; tx.repeat.x = -1; tx.offset.x = 1; }
-  if (old) { old.t.dispose(); r.texs = r.texs.filter(z => z !== old.t); }
-  r.texs.push(tx); r.tex.set(key, {t: tx, src: c});
-  if (r.ren.initTexture) try { r.ren.initTexture(tx); } catch(_){}   // upload now, not in the middle of a turn
+  if (old) { [r.pageM.L, r.pageM.R, r.pageM.F, r.pageM.B].forEach(m => { if (m.map === old.t) m.map = tx; }); old.t.dispose(); r.texs = r.texs.filter(z => z !== old.t); }
+  r.texs.push(tx); r.tex.set(key, {t: tx, src: src.c, sig, backOK: comp.backOK});
+  if (r.ren.initTexture) try { r.ren.initTexture(tx); } catch(_){}
   if (r.tex.size > 18) { const [k0, v0] = r.tex.entries().next().value; if (![r.pageM.L, r.pageM.R, r.pageM.F, r.pageM.B].some(m => m.map === v0.t)) { v0.t.dispose(); r.tex.delete(k0); } }
-  return {t: tx, ok: c === cache.get(keyFor(page))};
+  return {t: tx, ok: src.hi && comp.backOK};
 }
 function r3SetMat(m, page, flip){
   const q = r3TexFor(page, flip);
@@ -1728,7 +1925,7 @@ function r3Refresh(){                                  // called whenever the fl
   const r = r3; if (!r) return;
   if (r.syncing) return;
   if (!r.turn && !r.tw && r.view !== cur) { r3Locate(); return; }
-  if (r.missing) r3Fill();
+  if (r.missing || (!r.turn && !r.tw && (r3Sig(r.first) !== r.sigR || r3Sig(r.first + 1) !== r.sigL))) { r.sigR = r3Sig(r.first); r.sigL = r3Sig(r.first + 1); r3Fill(); }
 }
 function r3SheetPose(p, lift){                         // p: 0 = lying on the left, 1 = lying on the right
   const r = r3, pos = r.sheetGeo.attributes.position, NX = r.NX, NY = r.NY, h = r.h;
@@ -1793,10 +1990,37 @@ function r3Step(dir){
     if (r.first + 2 > n) { r3Close('next'); return; }
     r3Turn('next');
   } else {
-    if (!r.both && r.side === 'second' && r.first >= 1) { r3Pan('first'); return; }
-    if (r.first - 1 < 1) { r3Close('prev'); return; }
+    if (!r.both && r.side === 'second') { r3Pan('first'); return; }
+    if (r.first < 1 && rightP(r.first)) { r3Close('prev'); return; }      // already at the inside of the cover
     r3Turn('prev');
   }
+}
+function r3Jump(target){                              // you opened the book at another place: a quick flutter of leaves
+  const r = r3, n = nPages; target = Math.max(1, Math.min(n, Math.round(target)));
+  const cur1 = r.side === 'first' ? r.first : r.first + 1; if (Math.abs(target - cur1) < 2) return;
+  const dir = target > cur1 ? 'next' : 'prev';
+  for (let i=0; i<5; i++) setTimeout(()=>turnSound(0.1, 1.8, dir, 'lift'), i*55);
+  haptic(12);
+  r3BeginTurn(dir, 0.3);
+  const to = dir === 'next' ? 1 : 0, p0 = 1 - to;
+  r3Tween(380, e => r3SheetPose(p0 + (to - p0)*e, 0.3), ()=>{
+    r.turn = null; r.sheet.forEach(m => m.visible = false);
+    r.syncing = true; setView(firstView(target)); r.syncing = false; r.view = -1; r3Refresh();
+  }, easeOut3);
+}
+function r3RiffleTick(){                                // keep fanning pages while the finger is held
+  const r = r3; if (!r || !r.riffle) return;
+  const d = r.riffle.dx*r.sg, sp = Math.min(1, Math.abs(d)/(innerWidth*0.35)), dir = d > 0 ? 'next' : 'prev', n = nPages;
+  if (Math.abs(d) > 18 && !r.tw && !r.turn) {
+    const can = dir === 'next' ? r.first + 2 <= n : !(r.first < 1 && rightP(r.first));
+    if (can) {
+      if (!r.both) r.side = 'first';
+      r3BeginTurn(dir, 0.4); turnSound(0.12, 1.7, dir, 'lift');
+      const to = dir === 'next' ? 1 : 0, p0 = 1 - to;
+      r3Tween(Math.max(110, 260 - 150*sp), e => r3SheetPose(p0 + (to - p0)*e, 0.4), ()=> r3EndTurn(true), t2 => t2);
+    }
+  }
+  r.riffle.t = setTimeout(r3RiffleTick, 40);
 }
 function r3Close(dir){                                 // turning past the first or last page closes the book
   r3.leaving = true; stopR3();
@@ -1826,6 +2050,7 @@ function r3Loop(now){
   const cam = r.cam, tf = Math.tan(cam.fov*Math.PI/360);
   const wNeed = r.both ? 2.14 : 1.05, hNeed = r.h*1.06*(1 + 0.18*Math.sin(r.tilt));
   const D = Math.max(hNeed/2/tf, wNeed/2/(tf*cam.aspect))/r.zoom;
+  r3PlaceThumbs();
   const tx = (r.both ? 0 : r.camX)*r.sg + r.pan.x, ty = r.pan.y, tz = r.bt + r.T*0.5;
   cam.position.set(tx, ty - Math.sin(r.tilt)*D, tz + Math.cos(r.tilt)*D);
   cam.up.set(0, 1, 0); cam.lookAt(tx, ty, tz);
@@ -1839,7 +2064,15 @@ function r3Wire(){
     try { cv3.setPointerCapture(e.pointerId); } catch(_){}
     unlockAudio();
     r.pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
-    if (r.pts.size === 1) r.g1 = {x0: e.clientX, y0: e.clientY, t0: performance.now(), mode: null, tilt0: r.tilt, lx: e.clientX, lt: performance.now(), vx: 0};
+    if (r.pts.size === 1) {
+      r.g1 = {x0: e.clientX, y0: e.clientY, t0: performance.now(), mode: null, tilt0: r.tilt, lx: e.clientX, lt: performance.now(), vx: 0};
+      const fx = e.clientX/innerWidth, g = r.g1;
+      clearTimeout(r.holdT);
+      if ((fx < 0.25 || fx > 0.75) && !r.tw && !r.turn) r.holdT = setTimeout(()=>{   // press and hold the edge, then slide: riffle through the pages
+        if (r3 !== r || r.g1 !== g || g.mode) return;
+        g.mode = 'riffle'; r.riffle = {dx: 0}; haptic(12); toast(t('Slide sideways to flip through pages')); r3RiffleTick();
+      }, 450);
+    }
     if (r.pts.size === 2) { r.two = v3TwoOf(r); if (r.g1) r.g1.mode = 'two'; }
   };
   cv3.onpointermove = e=>{
@@ -1855,6 +2088,8 @@ function r3Wire(){
     }
     if (!g1 || g1.mode === 'two') return;
     const dx = e.clientX - g1.x0, dy = e.clientY - g1.y0, now = performance.now();
+    if (g1.mode === 'riffle') { r.riffle.dx = dx; return; }
+    if (Math.hypot(dx, dy) > 8) clearTimeout(r.holdT);
     g1.vx = (e.clientX - g1.lx)/Math.max(1, now - g1.lt); g1.lx = e.clientX; g1.lt = now;
     if (!g1.mode) {
       if (Math.hypot(dx, dy) < 10 || r.tw || r.turn) return;
@@ -1863,7 +2098,7 @@ function r3Wire(){
         const dir = dx*r.sg > 0 ? 'next' : 'prev', n = nPages;
         stopAutoTimerOnly();
         if (!r.both && ((dir === 'next' && r.side === 'first' && r.first + 1 <= n) || (dir === 'prev' && r.side === 'second'))) g1.mode = 'pan';
-        else if ((dir === 'next' && r.first + 2 > n) || (dir === 'prev' && r.first - 1 < 1)) g1.mode = 'end';
+        else if ((dir === 'next' && r.first + 2 > n) || (dir === 'prev' && r.first < 1 && rightP(r.first))) g1.mode = 'end';
         else { g1.mode = 'turn'; g1.dir = dir; const ry = (e.clientY/innerHeight); r3BeginTurn(dir, ry > 0.6 ? 1 : ry < 0.4 ? -1 : 0); r.drag = true; r.target = r.sheetP; turnSound(0.22, 1, dir, 'lift'); }
         g1.panDir = dir;
       }
@@ -1879,8 +2114,9 @@ function r3Wire(){
     r.pts.delete(e.pointerId);
     if (r.pts.size < 2) r.two = null;
     if (r.pts.size) return;
-    const g1 = r.g1; r.g1 = null; if (!g1) return;
+    const g1 = r.g1; r.g1 = null; clearTimeout(r.holdT); if (!g1) return;
     const dx = e.clientX - g1.x0;
+    if (g1.mode === 'riffle') { clearTimeout(r.riffle.t); r.riffle = null; autoSchedule(); return; }
     if (g1.mode === 'turn') {
       r.drag = false; r.target = undefined;
       const p = r.sheetP, prog = g1.dir === 'next' ? p : 1 - p, fling = Math.abs(g1.vx) > 0.35 && (g1.vx*r.sg > 0) === (g1.dir === 'next');
@@ -1895,6 +2131,14 @@ function r3Wire(){
     } else if (g1.mode === 'pan' || g1.mode === 'end') { if (Math.abs(dx) > 40) r3Step(g1.panDir); }
     else if (!g1.mode && e.type !== 'pointercancel' && performance.now() - g1.t0 < 400) {
       const now = performance.now();
+      const rc0 = new r.T3.Raycaster(); rc0.setFromCamera(new r.T3.Vector2(e.clientX/innerWidth*2 - 1, -(e.clientY/innerHeight)*2 + 1), r.cam);
+      const hit0 = rc0.intersectObjects(r.g.children, true).find(h => h.object.visible !== false);
+      const hit = hit0 && hit0.object.userData.stack && hit0.face && Math.abs(hit0.face.normal.z) < 0.6 ? hit0 : null;   // only the edge of the block, not the page lying on it
+      if (hit) {                                       // you gripped the edge of the pages: open the book there
+        const m = hit.object, lp = m.worldToLocal(hit.point.clone()), ts = Math.max(0.002, m.userData.ts), depth = Math.max(0, Math.min(1, (ts - lp.z)/ts)), n = nPages;
+        r3Jump(m.userData.stack < 0 ? (r.first + 2) + depth*(n - r.first - 2) : (r.first - 1) - depth*(r.first - 2));
+        return;
+      }
       if (now - lastTap < 320) { lastTap = 0; r.zoom = 1; r.pan = {x: 0, y: 0}; r.tilt = 0.38; r.dirty = true; return; }   // double tap: back to the normal view
       lastTap = now;
       const fx = e.clientX/innerWidth, f = r.sg > 0 ? fx : 1 - fx;
@@ -1910,6 +2154,101 @@ function v3TwoOf(r){
   const [a, b] = [...r.pts.values()];
   return {d: Math.max(10, Math.hypot(b.x - a.x, b.y - a.y)), mx: (a.x + b.x)/2, my: (a.y + b.y)/2};
 }
+/* ---------- paper ageing: a book you have had a while, or an old edition ---------- */
+let firstOpening = false;
+function ageK(){
+  const m = curMeta; if (!m) return 0;
+  if (m.aged) return 1;
+  const years = Math.max(0, (Date.now() - (m.added || Date.now()))/(365*864e5));
+  return Math.min(0.45, years*0.18 + (m.opens || 0)/400);
+}
+const pageAgeSig = () => (ageK()*20 | 0) + (curMeta && curMeta.aged ? 'a' : '');
+function seeded(n){ let x = (n*9301 + 49297) % 233280; return () => (x = (x*9301 + 49297) % 233280)/233280; }
+function pageAging(x, W, H, page){                     // yellowing from the edges in, and brown foxing spots on old paper
+  const k = ageK(); if (k < 0.02 || S.theme === 'night') return;
+  x.save(); x.globalCompositeOperation = 'multiply';
+  x.fillStyle = 'rgba(240,214,160,' + (0.22*k) + ')'; x.fillRect(0, 0, W, H);
+  const g = x.createRadialGradient(W/2, H/2, Math.min(W, H)*0.3, W/2, H/2, Math.max(W, H)*0.75);
+  g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(200,160,95,' + (0.35*k) + ')');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  if (k > 0.5) {
+    const rnd = seeded(page*7 + 3), n = 6 + Math.floor(rnd()*14);
+    for (let i=0; i<n; i++) {
+      const edge = rnd() < 0.7, px = edge ? (rnd() < 0.5 ? rnd()*W*0.18 : W - rnd()*W*0.18) : rnd()*W, py = rnd()*H, rr = (1 + rnd()*4)*W/600;
+      const sg = x.createRadialGradient(px, py, 0, px, py, rr*2.2);
+      sg.addColorStop(0, 'rgba(150,95,40,' + (0.18 + rnd()*0.2)*k + ')'); sg.addColorStop(1, 'rgba(150,95,40,0)');
+      x.fillStyle = sg; x.beginPath(); x.arc(px, py, rr*2.2, 0, Math.PI*2); x.fill();
+    }
+  }
+  x.restore();
+}
+/* ---------- the bookplate pasted inside the front cover ---------- */
+const rightP = p => (((p + off()) % 2) + 2) % 2 === 1;     // works for the leaves before page 1 too
+function plateCanvas(aspect, fly){                   // fly: the blank first leaf (with the inscription); otherwise the pastedown with the bookplate
+  const W = 900, H = Math.round(W*aspect), night = S.theme === 'night';
+  return v3Canvas(W, H, x=>{
+    x.fillStyle = night ? '#2a2622' : '#f1e7d0'; x.fillRect(0, 0, W, H);       // plain pastedown paper
+    for (let i=0; i<W*H/90; i++) { x.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.05)'; x.fillRect(Math.random()*W, Math.random()*H, 2, 2); }
+    if (typeof pageAging === 'function') pageAging(x, W, H, 0);
+    const m = curMeta || {}, hand = night ? '#9fb6e8' : '#1d3f8f';
+    if (fly) {
+      if (m.inscription) {
+        const ar = /[\u0600-\u06FF]/.test(m.inscription), fs = W*0.055, lh = fs*1.35, maxW = W*0.7;
+        x.save(); x.fillStyle = hand; x.font = fs + 'px NoteHand, cursive'; x.direction = ar ? 'rtl' : 'ltr'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        const lines = [];
+        for (const para of m.inscription.split('\n')) { let line = ''; for (const w of para.split(/\s+/).filter(Boolean)) { const tt = line ? line + ' ' + w : w; if (x.measureText(tt).width > maxW && line) { lines.push(line); line = w; } else line = tt; } lines.push(line); }
+        x.translate(W/2, H*0.3); x.rotate(-0.035); lines.slice(0, 10).forEach((l, i) => x.fillText(l, 0, i*lh)); x.restore();
+      }
+      return;
+    }
+    const pw = W*0.6, ph = pw*0.78, px = (W - pw)/2, py = H*0.12;
+    x.save(); x.shadowColor = 'rgba(0,0,0,0.25)'; x.shadowBlur = 10; x.shadowOffsetY = 3;
+    x.fillStyle = night ? '#3a342c' : '#fbf6ea'; x.fillRect(px, py, pw, ph); x.restore();
+    const ink = night ? '#c9b48a' : '#5a3a1e';
+    x.strokeStyle = ink; x.lineWidth = 3; x.strokeRect(px + 14, py + 14, pw - 28, ph - 28); x.lineWidth = 1; x.strokeRect(px + 22, py + 22, pw - 44, ph - 44);
+    x.fillStyle = ink; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'italic 600 ' + (pw*0.09) + 'px Georgia, serif'; x.fillText('Ex Libris', W/2, py + ph*0.22);
+    // a small ornament: an open book
+    const ox = W/2, oy = py + ph*0.42, ow = pw*0.12;
+    x.lineWidth = 2.5; x.beginPath(); x.moveTo(ox, oy + ow*0.35); x.quadraticCurveTo(ox - ow*0.5, oy - ow*0.05, ox - ow, oy + ow*0.1); x.lineTo(ox - ow, oy - ow*0.45);
+    x.quadraticCurveTo(ox - ow*0.5, oy - ow*0.6, ox, oy - ow*0.2); x.quadraticCurveTo(ox + ow*0.5, oy - ow*0.6, ox + ow, oy - ow*0.45); x.lineTo(ox + ow, oy + ow*0.1);
+    x.quadraticCurveTo(ox + ow*0.5, oy - ow*0.05, ox, oy + ow*0.35); x.moveTo(ox, oy - ow*0.2); x.lineTo(ox, oy + ow*0.35); x.stroke();
+    const name = (S.owner || '').trim();
+    x.font = (pw*0.045) + 'px Georgia, serif'; x.fillText(name ? (/[؀-ۿ]/.test(name) ? 'من مكتبة' : 'From the library of') : (S.lang === 'ar' ? 'من مكتبة' : 'From the library of'), W/2, py + ph*0.58);
+    x.beginPath(); x.moveTo(px + pw*0.18, py + ph*0.86); x.lineTo(px + pw*0.82, py + ph*0.83); x.lineWidth = 1; x.stroke();
+    if (name) { x.save(); x.fillStyle = hand; x.font = (pw*0.085) + 'px NoteHand, cursive'; x.direction = /[؀-ۿ]/.test(name) ? 'rtl' : 'ltr'; x.fillText(name, W/2, py + ph*0.76); x.restore(); }
+    // the date you got it, in pencil
+    const d = new Date(m.added || Date.now());
+    x.save(); x.fillStyle = night ? 'rgba(190,190,195,0.7)' : 'rgba(80,80,88,0.75)'; x.font = (W*0.032) + 'px NoteHand, cursive';
+    x.fillText(d.toLocaleDateString(S.lang === 'ar' ? 'ar-EG' : 'en-GB', {day: 'numeric', month: 'long', year: 'numeric'}), W/2, py + ph + H*0.05); x.restore();
+  });
+}
+function r3Plate(fly){                                // the leaves before page 1, for the 3D reader
+  const r = r3, sig = [S.owner, curMeta && curMeta.inscription, S.theme, pageAgeSig(), S.lang].join('|'), k = fly ? 'flyT' : 'plateT';
+  r.plates = r.plates || {};
+  const o = r.plates[k]; if (o && o.sig === sig) return o.t;
+  if (o) { o.t.dispose(); r.texs = r.texs.filter(z => z !== o.t); }
+  const tx = new r.T3.CanvasTexture(plateCanvas(r.h, fly)); tx.encoding = r.T3.sRGBEncoding;
+  if (r.sg < 0) { tx.wrapS = r.T3.RepeatWrapping; tx.repeat.x = -1; tx.offset.x = 1; }
+  r.texs.push(tx); r.plates[k] = {t: tx, sig}; return tx;
+}
+/* ---------- the cloth binding under the dust jacket ---------- */
+function clothCanvas(aspect, color, title, front){
+  const W = 640, H = Math.round(W*aspect);
+  return v3Canvas(W, H, x=>{
+    x.fillStyle = color; x.fillRect(0, 0, W, H);
+    for (let y=0; y<H; y+=3) { x.fillStyle = 'rgba(0,0,0,0.06)'; x.fillRect(0, y, W, 1); }      // woven cloth
+    for (let xx=0; xx<W; xx+=3) { x.fillStyle = 'rgba(255,255,255,0.035)'; x.fillRect(xx, 0, 1, H); }
+    if (!front) return;
+    const gold = '#d9b65e'; x.strokeStyle = gold; x.lineWidth = 3; x.strokeRect(W*0.08, W*0.08, W*0.84, H - W*0.16);
+    x.lineWidth = 1; x.strokeRect(W*0.1, W*0.1, W*0.8, H - W*0.2);
+    x.fillStyle = gold; x.textAlign = 'center'; x.textBaseline = 'middle'; const ar = /[؀-ۿ]/.test(title);
+    let fs = W*0.085; x.font = '600 ' + fs + 'px ' + (ar ? 'NoteHand, serif' : 'Georgia, serif'); x.direction = ar ? 'rtl' : 'ltr';
+    while (x.measureText(title).width > W*0.7 && fs > 14) { fs *= 0.9; x.font = '600 ' + fs + 'px ' + (ar ? 'NoteHand, serif' : 'Georgia, serif'); }
+    x.fillText(title, W/2, H*0.33);
+  });
+}
+let lastAddedId = null;
 let ebruC = null, ebruFor = '';
 function ebru(){                                     // traditional marbled paper, made once
   const key = (R.w|0) + 'x' + (R.h|0) + S.theme;
@@ -2021,7 +2360,7 @@ function drawTails(dx, dy){
     tailHits.push({x0: a.x, x1: c2.x, y0: a.y, y1: c2.y, page: b.page});
   });
 }
-function startIntro(cover, after){ if (use3D() && start3D(cover, after)) return; intro = {t0: performance.now(), cover, skip:false, after}; setBars(false); setTimeout(()=>{ if (intro && !intro.closing) coverSound('open'); }, HOLD - 60); requestAnimationFrame(introStep); }
+function startIntro(cover, after){ if (use3D() && start3D(cover, after)) return; if (firstOpening) { firstOpening = false; setTimeout(spineCrack, HOLD - 100); } intro = {t0: performance.now(), cover, skip:false, after}; setBars(false); setTimeout(()=>{ if (intro && !intro.closing) coverSound('open'); }, HOLD - 60); requestAnimationFrame(introStep); }
 
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
@@ -2186,6 +2525,18 @@ function paperSound(ac, dest, t0, D, speed, pan, part, vol){
   const th = ac.createOscillator(); th.type = 'sine'; th.frequency.setValueAtTime(150 + Math.random()*40, tl); th.frequency.exponentialRampToValueAtTime(70, tl + 0.08);
   const tg = ac.createGain(); tg.gain.setValueAtTime(0.0001, tl); tg.gain.exponentialRampToValueAtTime(0.16, tl + 0.005); tg.gain.exponentialRampToValueAtTime(0.0001, tl + 0.09);
   th.connect(tg); tg.connect(out); th.start(tl); th.stop(tl + 0.1);
+}
+function spineCrack(){                                // the glue of a new spine giving way: a few dry crackles
+  if (!S.sound || !actx) return;
+  try {
+    const ac = actx, out = ac.createGain(); out.gain.value = 0.5; out.connect(ac.destination);
+    for (let i=0; i<7; i++) {
+      const t0 = ac.currentTime + 0.12 + i*0.07 + Math.random()*0.05, n = ac.createBufferSource(); n.buffer = noiseBuffer(ac, 0.05, false);
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800 + Math.random()*2200; bp.Q.value = 3;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35 + Math.random()*0.3, t0 + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.035);
+      n.connect(bp); bp.connect(g); g.connect(out); n.start(t0); n.stop(t0 + 0.05);
+    }
+  } catch(_){}
 }
 function coverSound(kind){
   if (!S.sound || !actx) return;
@@ -2576,7 +2927,7 @@ $('annUndo').onclick = ()=>{
 };
 function annDown(b){
   const rc = rectAt(b); if (!rc) return;
-  if (annot.tool === 'hl' || annot.tool === 'pen') { annot.rc = rc; annot.drawing = {t:annot.tool, page:rc.page, pts:[toFrac(rc, b.x, b.y)]}; draw(); }
+  if (annot.tool === 'hl' || annot.tool === 'pen' || annot.tool === 'pencil') { annot.rc = rc; annot.drawing = {t:annot.tool, page:rc.page, pts:[toFrac(rc, b.x, b.y)]}; draw(); }
   else if (annot.tool === 'erase') { annot.erasing = rc; eraseAt(rc, b); }
   else if (annot.tool === 'clip') { annot.clip = {rc, a:b, b:b}; draw(); }
 }
@@ -2668,7 +3019,7 @@ function fmtDur(sec){
 /* ================= UI ================= */
 function setBars(show){ document.body.classList.toggle('hide-bars', !show); }
 let toastT;
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1900); }
+function toast(msg, force){ if (S.pure && reading() && !force) return; const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1900); }
 function fileTitle(name){                           // "kitab_al-adab (1) - www.site.com.pdf" → "kitab al adab"
   let t0 = String(name || '').replace(/\.pdf$/i, '');
   t0 = t0.replace(/(https?:\/\/)?(www\.)?[\w-]+\.(com|net|org|info|me|io|co|ws)\b[\w\/.-]*/gi, ' ')
@@ -2803,7 +3154,9 @@ function syncSettingsUI(){
   $('optSound').checked = S.sound; $('optVibe').checked = S.vibe; $('optAuto').checked = autoOn;
   $('autoSec').value = S.autoSec; $('autoVal').textContent = t('{s} s', {s:S.autoSec});
   $('goal').value = S.goal; $('goalVal').textContent = t('{n} pages', {n:S.goal});
-  $('optOpen').checked = S.openAnim; $('optBook3d').checked = S.book3d !== false; $('optRead3d').checked = !!S.read3d; $('optTilt').checked = !!S.tilt;
+  $('optOpen').checked = S.openAnim; $('optBook3d').checked = S.book3d !== false; $('optRead3d').checked = !!S.read3d;
+  if (document.activeElement !== $('ownerName')) $('ownerName').value = S.owner || '';
+  $('optR3m').checked = S.r3margins !== false; $('optThumbs').checked = !!S.thumbs; $('optPure').checked = !!S.pure; document.body.classList.toggle('pure', !!S.pure); $('optTilt').checked = !!S.tilt;
   document.querySelectorAll('#lampSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v === (S.lamp || 'off')));
   document.querySelectorAll('#paperSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v === paperOf()));
   const isPreset = BGS.hasOwnProperty(S.bg) || TEX.hasOwnProperty(S.bg);
@@ -2847,6 +3200,10 @@ document.querySelectorAll('#lampSeg button').forEach(b=>b.onclick = ()=>{ S.lamp
 document.querySelectorAll('#paperSeg button').forEach(b=>b.onclick = ()=>{ if (!curMeta) return; curMeta.paper = b.dataset.v; saveMeta(); syncSettingsUI(); draw(); feedback(); });
 $('optTilt').onchange = e=>setTilt(e.target.checked);
 $('optRead3d').onchange = e=>setRead3d(e.target.checked);
+$('ownerName').onchange = e=>{ S.owner = e.target.value.trim(); saveS(); if (r3) { r3.plateSig = ''; r3.missing = true; } };
+$('optThumbs').onchange = e=>{ S.thumbs = e.target.checked; saveS(); if (r3) r3.dirty = true; };
+$('optR3m').onchange = e=>{ S.r3margins = e.target.checked; saveS(); if (r3) { stopR3(); draw(); } };
+$('optPure').onchange = e=>{ S.pure = e.target.checked; saveS(); syncSettingsUI(); };
 $('r3Btn').onclick = ()=>{ setRead3d(!S.read3d); feedback(); };
 $('optBook3d').onchange = e=>{ S.book3d = e.target.checked; saveS(); if (S.book3d) loadThree().catch(()=>{}); };
 $('optOpen').onchange = e=>{ S.openAnim = e.target.checked; saveS(); };
@@ -3295,7 +3652,7 @@ async function openBook(id, isNew){
     const meta = await dbReq('meta','readonly',os=>os.get(id));
     const data = await dbReq('data','readonly',os=>os.get(id));
     if (!meta || !data) { toast(t('Book not found')); return renderLibrary(); }
-    meta.lastOpened = Date.now();
+    meta.lastOpened = Date.now(); firstOpening = !meta.opens; meta.opens = (meta.opens || 0) + 1;
     dbReq('meta','readwrite',os=>os.put(meta)).catch(()=>{});
     await openBuf(new Uint8Array(data), meta, isNew);
   } catch (err) { console.error(err); toast(t('Could not open this book')); }
@@ -3381,6 +3738,7 @@ async function addBook(name, size, buf){
   try {
     await dbReq('data','readwrite',os=>os.put(buf, id));
     await dbReq('meta','readwrite',os=>os.put(meta));
+    lastAddedId = id;
     return {id, saved:true};
   } catch (err) {
     console.error(err);
@@ -3432,6 +3790,28 @@ function spineColor(b){
 }
 function renderShelf(list, recentId){
   const box = $('shelf'); box.innerHTML = '';
+  // the book you are reading is not on the shelf: it lies on the desk, with the last two you read stacked beside it
+  const desk = $('desk'); desk.innerHTML = ''; desk.classList.remove('has');
+  const reading0 = recentId && recentId.lastOpened && !isDone(recentId) ? recentId : null;
+  if (reading0 && list.includes(reading0)) {
+    desk.classList.add('has');
+    const cap = document.createElement('span'); cap.className = 'cap'; cap.textContent = t('On your desk'); desk.appendChild(cap);
+    const lie = document.createElement('div'); lie.className = 'lie'; lie.title = bookName(reading0);
+    lie.innerHTML = '<i class="sl"></i><div class="pg"></div><div class="sd"></div><div class="cv"></div>';
+    const cvd = lie.querySelector('.cv');
+    if (reading0.thumb && reading0.coverArt) cvd.style.backgroundImage = 'url("' + reading0.thumb + '")';
+    else { cvd.style.background = spineColor(reading0); cvd.innerHTML = '<span style="display:block;padding:40px 8px 0;text-align:center;color:#e8c977;font-size:12px;font-weight:600"></span>'; cvd.firstChild.textContent = bookName(reading0); }
+    if (reading0.id === lastAddedId && !reading()) lie.classList.add('arrive');   // a new book lands on the desk
+    lie.onclick = ()=>{ feedback(); openBook(reading0.id); };
+    desk.appendChild(lie);
+    const others = list.filter(b => b !== reading0 && b.lastOpened).sort((a, b2)=>(b2.lastOpened||0)-(a.lastOpened||0)).slice(0, 3);
+    if (others.length) {
+      const pile = document.createElement('div'); pile.className = 'pile';
+      others.forEach(b=>{ const d = document.createElement('div'); d.style.background = spineColor(b); d.textContent = bookName(b); d.onclick = ()=>{ feedback(); openBook(b.id); }; pile.appendChild(d); });
+      desk.appendChild(pile);
+    }
+    list = list.filter(b => b !== reading0);
+  }
   list.forEach(b=>{
     let h = 0; for (const ch of b.id) h = (h*17 + ch.charCodeAt(0)) >>> 0;
     const w = Math.round(Math.max(24, Math.min(60, 20 + Math.sqrt(b.pages || 50)*2.2))), ht = 140 + (h % 36);
@@ -3440,7 +3820,9 @@ function renderShelf(list, recentId){
     const col = spineColor(b); sp.style.cssText = 'width:'+w+'px;height:'+ht+'px;background:linear-gradient(90deg,'+shadeHex2(col,-0.25)+','+col+' 30%,'+shadeHex2(col,0.12)+' 55%,'+shadeHex2(col,-0.3)+')';
     const light = /rgb\((\d+),(\d+),(\d+)/.exec(col); const lum = light ? (+light[1]*0.3 + +light[2]*0.59 + +light[3]*0.11) : 60;
     const done = isDone(b), cont = recentId && recentId.id === b.id && b.lastOpened && !done;
-    sp.innerHTML = '<i class="rb' + (cont ? ' on' : '') + '"></i><span class="st"></span>' + (done ? '<span class="star">★</span>' : '');
+    sp.innerHTML = '<span class="st"></span>' + (done ? '<span class="star">★</span>' : '');
+    if (b.lastOpened && !done && (b.page || 1) > 1) { const sl = document.createElement('i'); sl.className = 'slip'; sl.style.bottom = (26 + ht - 10) + 'px'; sl.style.left = Math.round(w*0.35) + 'px'; slot.appendChild(sl); }   // a paper bookmark sticks out of the top
+    if (b.id === lastAddedId && !reading()) sp.classList.add('arrive');
     const st = sp.querySelector('.st'); st.textContent = bookName(b); st.style.color = lum > 160 ? '#2a1d12' : '#f3e6c8';
     st.style.fontSize = (w < 30 ? 10 : 12) + 'px';
     sp.title = bookName(b) + ' · ' + t('Page {p} of {n}', {p:b.page||1, n:b.pages});
@@ -3465,7 +3847,7 @@ $('libSort').onchange = e=>{ libSort = e.target.value; try { localStorage.setIte
 async function putMeta(m){ await dbReq('meta','readwrite',os=>os.put(m)); }
 async function bookMenu(b){
   const done = isDone(b);
-  const i = await choose(bookName(b), [{label:t('Rename')}, {label:t('Move to shelf…')}, {label:t(done ? 'Mark as unread' : 'Mark as finished')}, {label:t('Remove from library'), danger:true}]);
+  const i = await choose(bookName(b), [{label:t('Rename')}, {label:t('Move to shelf…')}, {label:t(done ? 'Mark as unread' : 'Mark as finished')}, {label:t(b.inscription ? 'Edit the inscription' : 'Write an inscription')}, {label:t(b.aged ? 'New paper' : 'Old edition (yellowed paper)')}, {label:t('Remove from library'), danger:true}]);
   if (i === null) return;
   if (i === 0) {
     const v = await ask({msg:t('Book name'), input:{value:bookName(b)}, ok:t('Save')});
@@ -3483,7 +3865,12 @@ async function bookMenu(b){
   } else if (i === 2) {
     if (done) { b.finished = false; b.page = 1; } else b.finished = true;
     await putMeta(b);
-  } else if (i === 3) {
+  } else if (i === 3) {                              // a few handwritten lines on the first leaf, as in a gift
+    const v = await ask({msg: t('Inscription (written by hand inside the cover)'), textarea: b.inscription || '', ok: t('Save')});
+    if (v === null) return; b.inscription = v.trim(); await putMeta(b);
+  } else if (i === 4) {
+    b.aged = !b.aged; await putMeta(b); toast(t(b.aged ? 'Old edition' : 'New paper'));
+  } else if (i === 5) {
     const ok = await ask({msg:t('Remove “{b}” from your library?', {b:bookName(b)}), ok:t('Remove'), danger:true});
     if (!ok) return;
     try {
@@ -3532,6 +3919,7 @@ async function renderLibrary(){
     const done = isDone(b);
     const left = !done && b.avgSec ? ' · ' + t('{d} left', {d:fmtDur((b.pages-(b.page||1))*b.avgSec)}) : '';
     const el = document.createElement('div'); el.className = 'card' + (b.dir === 'ltr' ? ' ltrb' : '');
+    if (b.id === lastAddedId && !reading()) el.classList.add('arrive');
     el.innerHTML =
       '<div class="cover">' + (b.thumb ? '<img alt="" src="'+b.thumb+'">' : '') +
       (done ? '<span class="badge done">' + t('Finished') + '</span>' : (recentId && recentId.id === b.id && b.lastOpened ? '<span class="badge">' + t('Continue') + '</span>' : '')) +
@@ -3545,6 +3933,7 @@ async function renderLibrary(){
     grid.appendChild(el);
   });
   renderShelf(list, recentId);
+  if (!reading()) lastAddedId = null;
   let line = '';
   if (has) {
     try {
@@ -3623,7 +4012,10 @@ Object.assign(AR, {
  'Drag the note to where you want it':'اسحب الملاحظة إلى المكان الذي تريده', 'Note':'ملاحظة', 'Edit':'تعديل', 'Move':'نقل', 'Edit note':'تعديل الملاحظة', 'Note deleted':'حُذفت الملاحظة',
  'Hide the phone’s status bar':'إخفاء شريط حالة الهاتف',
  'Bookshelf view':'عرض رف الكتب', 'Cover view':'عرض الأغلفة',
- 'Open the book':'افتح الكتاب', 'Read in 3D':'القراءة ثلاثية الأبعاد', 'The open book lies on the table; drag up or down to tilt it':'الكتاب مفتوح على الطاولة؛ اسحب لأعلى أو لأسفل لتميله',
+ 'Open the book':'افتح الكتاب', 'Page margins in 3D':'هوامش الصفحة في الوضع ثلاثي الأبعاد', 'Show the whole printed page, white margins included':'اعرض الصفحة المطبوعة كاملة بهوامشها البيضاء',
+ 'Pure book':'كتاب خالص', 'No page numbers, goals or messages while reading: only the book':'لا أرقام صفحات ولا أهداف ولا رسائل أثناء القراءة: الكتاب فقط', 'Pencil':'قلم رصاص', 'On your desk':'على مكتبك', 'My thumbs on the pages':'إبهاماي على الصفحات', 'In 3D, your thumbs hold the book at the bottom corners':'في الوضع ثلاثي الأبعاد يمسك إبهاماك الكتاب من الركنين السفليين', 'Your name':'اسمك', 'Written on the bookplate inside every book':'يُكتب على ورقة الملكية داخل غلاف كل كتاب',
+ 'Write an inscription':'اكتب إهداءً', 'Edit the inscription':'عدّل الإهداء', 'Inscription (written by hand inside the cover)':'الإهداء (يُكتب بخط اليد داخل الغلاف)',
+ 'Old edition (yellowed paper)':'طبعة قديمة (ورق مصفرّ)', 'New paper':'ورق جديد', 'Old edition':'طبعة قديمة', 'Jacket':'الغلاف الورقي', 'Remove jacket':'انزع الغلاف الورقي', 'Put jacket on':'ألبسه الغلاف الورقي', 'Read in 3D':'القراءة ثلاثية الأبعاد', 'The open book lies on the table; drag up or down to tilt it':'الكتاب مفتوح على الطاولة؛ اسحب لأعلى أو لأسفل لتميله',
  'Reading in 3D · drag up or down to tilt the book':'القراءة ثلاثية الأبعاد · اسحب لأعلى أو لأسفل لتميل الكتاب',
  'Swipe to turn · drag up or down to tilt · pinch to zoom':'اسحب جانبًا للتقليب · لأعلى أو لأسفل للإمالة · إصبعان للتكبير',
  '3D needs an internet connection the first time':'الوضع ثلاثي الأبعاد يحتاج اتصالًا بالإنترنت أول مرة', 'Front':'الأمام', 'Spine':'الكعب', 'Back':'الخلف', 'Reset':'إعادة',
@@ -3686,7 +4078,7 @@ function mergeMeta(cur0, b){                        // merge a backed-up book in
   if ((b.lastOpened || 0) > (m.lastOpened || 0)) { m.page = b.page; m.lastOpened = b.lastOpened; }
   m.ears = Object.assign({}, b.ears || {}, m.ears || {});
   const nid = new Set((m.notes || []).map(z => z.id)); m.notes = (m.notes || []).concat((b.notes || []).filter(z => !nid.has(z.id)));
-  for (const k of ['renamed','title','shelf','dir','off','enhance','finished','avgSec','mushaf','khatma','paper','color']) if (b[k] !== undefined && m[k] === undefined) m[k] = b[k];
+  for (const k of ['inscription','aged','opens','jacket','renamed','title','shelf','dir','off','enhance','finished','avgSec','mushaf','khatma','paper','color']) if (b[k] !== undefined && m[k] === undefined) m[k] = b[k];
   return m;
 }
 applyPendingRestore = async function(meta){          // a restored book whose PDF arrives later

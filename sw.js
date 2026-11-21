@@ -1,7 +1,7 @@
 // Book in Your Hand — service worker: works offline and receives PDFs shared from other apps.
-const CACHE = 'biyh-v1';
+const CACHE = 'biyh-v10';
 const ASSETS = [
-  './', './index.html', './pdf.min.js', './pdf.worker.min.js', './manifest.webmanifest',
+  './', './index.html', './pdf.min.js', './pdf.worker.min.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'
 ];
 
@@ -41,7 +41,21 @@ self.addEventListener('fetch', e => {
 
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
-  // app files: cache first, then network (and keep a fresh copy)
+  // the app page itself: always try the newest version first, fall back to the saved copy offline
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/')) {
+    e.respondWith((async () => {
+      try {
+        const res = await fetch(e.request, {cache: 'no-cache'});
+        if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res; }
+        throw 0;
+      } catch (_) {
+        return (await caches.match('./index.html')) || (await caches.match(e.request, {ignoreSearch: true})) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // other app files (PDF engine, icons): cache first, then network (and keep a fresh copy)
   e.respondWith((async () => {
     const cached = await caches.match(e.request, {ignoreSearch: true});
     const network = fetch(e.request).then(res => {

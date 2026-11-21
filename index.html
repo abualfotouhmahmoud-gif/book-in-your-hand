@@ -1300,12 +1300,12 @@ function v3SpineCanvas(board, ratio){                // the spine: leather, gold
 function v3EdgeCanvas(vertical, gilt){              // the edges of the leaves
   return v3Canvas(512, 512, (x, W, H)=>{
     x.fillStyle = gilt ? '#c9a24a' : (S.theme === 'night' ? '#b9b2a2' : '#efe6d2'); x.fillRect(0, 0, W, H);
-    for (let i=0; i<420; i++) {
-      const q = Math.random()*W; x.fillStyle = gilt ? 'rgba(90,60,10,' + (0.04 + Math.random()*0.12) + ')' : 'rgba(60,40,20,' + (0.03 + Math.random()*0.09) + ')';
-      if (vertical) x.fillRect(q, 0, 1.2, H); else x.fillRect(0, q, W, 1.2);
+    for (let i=0; i<900; i++) {                     // hundreds of leaf edges, each barely different from the next
+      const q = Math.random()*W; x.fillStyle = gilt ? 'rgba(90,60,10,' + (0.012 + Math.random()*0.03) + ')' : 'rgba(60,40,20,' + (0.01 + Math.random()*0.025) + ')';
+      if (vertical) x.fillRect(q, 0, 0.7, H); else x.fillRect(0, q, W, 0.7);
     }
     const g = vertical ? x.createLinearGradient(0, 0, W, 0) : x.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, 'rgba(0,0,0,0.22)'); g.addColorStop(0.12, 'rgba(0,0,0,0)'); g.addColorStop(0.88, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.22)');
+    g.addColorStop(0, 'rgba(0,0,0,0.10)'); g.addColorStop(0.15, 'rgba(0,0,0,0)'); g.addColorStop(0.85, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.10)');
     x.fillStyle = g; x.fillRect(0, 0, W, H);
   });
 }
@@ -1566,9 +1566,9 @@ async function startR3(){
   ren.shadowMap.enabled = true; ren.shadowMap.type = T3.PCFSoftShadowMap;
   const scene = new T3.Scene(); r3.scene = scene;
   r3.cam = new T3.PerspectiveCamera(30, 1, 0.02, 40);
-  scene.add(new T3.HemisphereLight(0xfff6e8, 0x30200f, 0.82));
-  const key = new T3.DirectionalLight(0xfff2de, 0.62); key.position.set(-1.6, 2.4, 4.2); key.castShadow = true;
-  key.shadow.mapSize.set(1024, 1024); const sc = key.shadow.camera; sc.left = sc.bottom = -2.4; sc.right = sc.top = 2.4; sc.near = 0.5; sc.far = 10; key.shadow.bias = -0.0008;
+  scene.add(new T3.HemisphereLight(0xfff6e8, 0x4a3420, 0.9));
+  const key = new T3.DirectionalLight(0xfff2de, 0.5); key.position.set(-1.2, 2.0, 5.0); key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024); const sc = key.shadow.camera; sc.left = sc.bottom = -2.4; sc.right = sc.top = 2.4; sc.near = 0.5; sc.far = 10; key.shadow.bias = -0.0005; key.shadow.normalBias = 0.025;
   scene.add(key);
   const table = new T3.Mesh(new T3.PlaneGeometry(30, 30), new T3.ShadowMaterial({opacity: 0.3}));
   table.receiveShadow = true; scene.add(table); r3.geos.push(table.geometry); r3.mats.push(table.material);
@@ -1587,7 +1587,13 @@ function stopR3(){
   r.cv.remove(); document.body.classList.remove('r3on');
   draw();
 }
-const r3Surf = (d, ts) => ts*(1 - Math.exp(-d/0.05));    // the top page dips into the gutter
+function r3Surf(d, ts){                               // height of the top page above the board, d = distance from the spine (0..1)
+  const c = 0.16 + Math.min(0.22, ts*0.9);            // thicker books curve over a wider band
+  const s = Math.min(1, d/c), rise = 1 - Math.pow(1 - s, 2.6);   // eases out of the binding, no sharp edge
+  const bow = 0.018*Math.sin(Math.PI*Math.min(1, d/0.9))*(0.4 + ts);  // leaves lift slightly before lying flat
+  return Math.max(0, ts*rise + bow - 0.006*d);
+}
+const r3D = i => Math.pow(i, 1.7);                     // more points near the spine, where the paper bends
 function r3Build(){
   const r = r3, T3 = r.T3, h = R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
   r.h = h; r.T = Math.max(0.05, Math.min(0.36, 0.03 + n*0.0005)); r.bt = 0.022; r.sg = sg;
@@ -1609,10 +1615,10 @@ function r3Build(){
   const edge = (vertical) => { const tx = new T3.CanvasTexture(v3EdgeCanvas(vertical, gilt)); tx.encoding = T3.sRGBEncoding; tx.wrapS = tx.wrapT = T3.RepeatWrapping; r.texs.push(tx); return mat({map: tx, roughness: gilt ? 0.4 : 0.95, metalness: gilt ? 0.3 : 0}); };
   r.capM = edge(false); r.sideM = edge(true);
   r.paperT = new T3.CanvasTexture(v3Canvas(8, 8, (x, W, H)=>{ x.fillStyle = T().paper; x.fillRect(0, 0, W, H); })); r.texs.push(r.paperT);
-  r.pageM = {L: mat({map: r.paperT}), R: mat({map: r.paperT}), F: mat({map: r.paperT, side: T3.FrontSide}), B: mat({map: r.paperT, side: T3.BackSide})};
+  r.pageM = {L: mat({map: r.paperT, vertexColors: true, roughness: 0.92}), R: mat({map: r.paperT, vertexColors: true, roughness: 0.92}), F: mat({map: r.paperT, side: T3.FrontSide, roughness: 0.92}), B: mat({map: r.paperT, side: T3.BackSide, roughness: 0.92})};
   // the turning sheet: a grid we bend every frame
   const NX = 40, NY = 8, pos = new Float32Array((NX + 1)*(NY + 1)*3), uv = new Float32Array((NX + 1)*(NY + 1)*2), idx = [];
-  for (let j=0; j<=NY; j++) for (let i=0; i<=NX; i++) { const k = j*(NX + 1) + i; uv[2*k] = 1 - i/NX; uv[2*k + 1] = j/NY; }
+  for (let j=0; j<=NY; j++) for (let i=0; i<=NX; i++) { const k = j*(NX + 1) + i; uv[2*k] = 1 - r3D(i/NX); uv[2*k + 1] = j/NY; }
   for (let j=0; j<NY; j++) for (let i=0; i<NX; i++) { const a = j*(NX + 1) + i, b = a + 1, c = a + NX + 2, d = a + NX + 1; idx.push(a, c, b, a, d, c); }
   const sg2 = new T3.BufferGeometry(); sg2.setAttribute('position', new T3.BufferAttribute(pos, 3)); sg2.setAttribute('uv', new T3.BufferAttribute(uv, 2)); sg2.setIndex(idx);
   r.geos.push(sg2); r.sheetGeo = sg2; r.NX = NX; r.NY = NY;
@@ -1620,20 +1626,22 @@ function r3Build(){
   f.castShadow = b.castShadow = true; f.visible = b.visible = false; g.add(f); g.add(b); r.sheet = [f, b];
 }
 function r3StackGeo(ts){                               // a block of pages, curving down into the gutter
-  const T3 = r3.T3, sh = new T3.Shape(), N = 28, t2 = Math.max(ts, 0.002);
+  const T3 = r3.T3, sh = new T3.Shape(), N = 40, t2 = Math.max(ts, 0.002);
   sh.moveTo(0, 0); sh.lineTo(1, 0);
-  for (let i=N; i>=0; i--) { const d = i/N; sh.lineTo(d, r3Surf(d, t2)); }
+  for (let i=N; i>=0; i--) { const d = r3D(i/N); sh.lineTo(d, Math.max(0.0005, r3Surf(d, t2) - 0.003)); }
   const geo = new T3.ExtrudeGeometry(sh, {depth: r3.h, bevelEnabled: false, curveSegments: 1, steps: 1});
   geo.rotateX(Math.PI/2); geo.translate(0, r3.h/2, 0);
   return geo;
 }
 function r3PageGeo(side, ts){                          // the top page lying on a stack (side: 1 = right, -1 = left)
-  const T3 = r3.T3, NX = 30, NY = 2, pos = [], uv = [], idx = [];
+  const T3 = r3.T3, NX = 40, NY = 2, pos = [], uv = [], idx = [], col = [];
   for (let j=0; j<=NY; j++) for (let i=0; i<=NX; i++) {
-    const d = i/NX, v = j/NY; pos.push(side*d, (v - 0.5)*r3.h, r3Surf(d, Math.max(ts, 0.002)) + 0.0012); uv.push(side > 0 ? d : 1 - d, v);
+    const d = r3D(i/NX), v = j/NY; pos.push(side*d, (v - 0.5)*r3.h, r3Surf(d, Math.max(ts, 0.002)) + 0.0045); uv.push(side > 0 ? d : 1 - d, v);
+    const ao = 1 - 0.32*Math.exp(-d/0.06) - 0.06*Math.exp(-d/0.25);   // soft shade where the paper turns into the binding
+    col.push(ao, ao, ao);
   }
   for (let j=0; j<NY; j++) for (let i=0; i<NX; i++) { const a = j*(NX + 1) + i, b = a + 1, c = a + NX + 2, d = a + NX + 1; if (side > 0) idx.push(a, b, c, a, c, d); else idx.push(a, c, b, a, d, c); }
-  const geo = new T3.BufferGeometry(); geo.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new T3.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+  const geo = new T3.BufferGeometry(); geo.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new T3.Float32BufferAttribute(uv, 2)); geo.setAttribute('color', new T3.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
   return geo;
 }
 function r3Stacks(){                                   // (re)build both page blocks for where you are in the book
@@ -1709,10 +1717,10 @@ function r3SheetPose(p, lift){                         // p: 0 = lying on the le
     const v = j/NY, y = (v - 0.5)*h;
     let k = k0*(1 + 0.55*(lift || 0)*(0.5 - v)); k = Math.max(0, Math.min(k, Math.PI - a0));
     for (let i=0; i<=NX; i++) {
-      const d = i/NX; let x, z;
+      const d = r3D(i/NX); let x, z;
       if (k < 1e-4) { x = -d*Math.cos(a0); z = d*Math.sin(a0); }
       else { x = -(Math.sin(a0 + k*d) - Math.sin(a0))/k; z = (Math.cos(a0) - Math.cos(a0 + k*d))/k; }
-      z += r.bt + (1 - p)*r3Surf(d, r.tsL) + p*r3Surf(d, r.tsR) + 0.0035;
+      z += r.bt + (1 - p)*r3Surf(d, r.tsL) + p*r3Surf(d, r.tsR) + 0.007;
       pos.setXYZ(j*(NX + 1) + i, x, y, z);
     }
   }

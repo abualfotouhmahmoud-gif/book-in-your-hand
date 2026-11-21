@@ -646,7 +646,7 @@ async function load(key){
   } catch (e) { console.error(e); }
   finally { if (g === gen) pending.delete(key); }
 }
-function prefetch(){ for (const v of [cur, cur+1, cur-1, cur+2]) for (const k of keysOf(v)) if (!cache.has(k)) load(k); }
+function prefetch(){ if (r3) return; for (const v of [cur, cur+1, cur-1, cur+2]) for (const k of keysOf(v)) if (!cache.has(k)) load(k); }
 
 /* ================= drawing ================= */
 function rootT(){
@@ -1638,17 +1638,16 @@ async function startR3(){
   try { ren = new T3.WebGLRenderer({canvas: cv3, antialias: true, alpha: true}); } catch(_){ S.read3d = false; saveS(); return; }
   document.body.insertBefore(cv3, $('book').nextSibling);
   r3 = {T3, ren, cv: cv3, texs: [], mats: [], geos: [], tex: new Map(), dirty: true, zoom: 1, tilt: 0.38, pan: {x: 0, y: 0}, pts: new Map(), camX: 0.5};
-  ren.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75)); ren.outputEncoding = T3.sRGBEncoding;
-  ren.shadowMap.enabled = true; ren.shadowMap.type = T3.PCFShadowMap;
+  ren.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); ren.outputEncoding = T3.sRGBEncoding;
+  ren.shadowMap.enabled = false;                       // shadows are painted instead (much lighter on phones)
   const scene = new T3.Scene(); r3.scene = scene;
   r3.cam = new T3.PerspectiveCamera(30, 1, 0.02, 40);
   scene.add(new T3.HemisphereLight(0xfff6e8, 0x4a3420, 0.9));
   const key = new T3.DirectionalLight(0xfff2de, 0.5); key.position.set(-1.2, 2.0, 5.0); key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024); const sc = key.shadow.camera; sc.left = sc.bottom = -2.4; sc.right = sc.top = 2.4; sc.near = 0.5; sc.far = 10; key.shadow.bias = -0.0005; key.shadow.normalBias = 0.025;
   scene.add(key);
-  const table = new T3.Mesh(new T3.PlaneGeometry(30, 30), new T3.ShadowMaterial({opacity: 0.3}));
-  table.receiveShadow = true; scene.add(table); r3.geos.push(table.geometry); r3.mats.push(table.material);
-  r3Build(); r3MakeThumbs();
+
+  r3Build(); r3MakeThumbs(); r3MakeShadows();
   r3Locate();
   document.body.classList.add('r3on');
   r3Resize(); r3Wire();
@@ -1729,6 +1728,44 @@ function r3PlaceThumbs(){
     t.position.set(side*1.0, -r.h/2 + 0.02, r.bt + r3Surf(0.98, ts) + 0.028 + lift);
   });
 }
+function r3MakeShadows(){                              // painted shadows: under the book, and the turning leaf's shadow on the pages
+  const r = r3, T3 = r.T3, h = r.h;
+  const soft = v3Canvas(256, 256, (x, W, H)=>{ const g = x.createRadialGradient(W/2, H/2, W*0.18, W/2, H/2, W*0.5); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H); });
+  const st = new T3.CanvasTexture(soft); r.texs.push(st);
+  const sm = new T3.MeshBasicMaterial({map: st, transparent: true, depthWrite: false}); r.mats.push(sm);
+  const sg = new T3.PlaneGeometry(2.9, h + 0.75); r.geos.push(sg);
+  const under = new T3.Mesh(sg, sm); under.position.set(0.04, -0.06, 0.0005); r.g.add(under);
+  r.shade = [1, -1].map(side => {                     // a strip we redraw while a leaf is in the air
+    const c = document.createElement('canvas'); c.width = 256; c.height = 1;
+    const tx = new T3.CanvasTexture(c); r.texs.push(tx);
+    const m = new T3.MeshBasicMaterial({map: tx, transparent: true, depthWrite: false}); r.mats.push(m);
+    return {side, c, tx, m, mesh: null};
+  });
+}
+function r3ShadeMeshes(){                              // follow the shape of the top pages
+  const r = r3; if (!r.shade) return;
+  r.shade.forEach(sh => {
+    if (sh.mesh) { r.g.remove(sh.mesh); sh.mesh.geometry.dispose(); }
+    const ts = sh.side > 0 ? r.tsR : r.tsL, geo = r3PageGeo(sh.side, ts);
+    const uv = geo.attributes.uv; for (let i=0; i<uv.count; i++) if (sh.side < 0) uv.setX(i, 1 - uv.getX(i));   // u = distance from the spine on both sides
+    const m = new r.T3.Mesh(geo, sh.m); m.position.z = r.bt + 0.0016; m.renderOrder = 2; m.visible = false; r.g.add(m); sh.mesh = m;
+  });
+}
+function r3PaintShade(minX, maxX, p){                  // darken the pages under the lifted leaf
+  const r = r3; if (!r.shade) return;
+  const a = r.turn ? 0.34*Math.sin(Math.PI*p) : 0;
+  r.shade.forEach(sh => {
+    if (!sh.mesh) return;
+    const reach = sh.side > 0 ? Math.max(0, maxX) : Math.max(0, -minX);
+    sh.mesh.visible = a > 0.01 && reach > 0.01;
+    if (!sh.mesh.visible) return;
+    const x = sh.c.getContext('2d'), W = sh.c.width, end = Math.min(1, reach + 0.12)*W;
+    x.clearRect(0, 0, W, 1);
+    const g = x.createLinearGradient(0, 0, end, 0);
+    g.addColorStop(0, 'rgba(0,0,0,' + a + ')'); g.addColorStop(0.6, 'rgba(0,0,0,' + a*0.55 + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, end, 1); sh.tx.needsUpdate = true;
+  });
+}
 function r3StackGeo(ts){                               // a block of pages, curving down into the gutter
   const T3 = r3.T3, sh = new T3.Shape(), N = 40, t2 = Math.max(ts, 0.002);
   sh.moveTo(0, 0); sh.lineTo(1, 0);
@@ -1762,6 +1799,7 @@ function r3Stacks(){                                   // (re)build both page bl
   });
   old.forEach(m => { r.g.remove(m); m.geometry.dispose(); });
   r.stackMeshes = fresh;
+  r3ShadeMeshes();
   r.dirty = true;
 }
 function r3Locate(){                                   // pick up the reader's current page
@@ -1771,7 +1809,7 @@ function r3Locate(){                                   // pick up the reader's c
   r.view = cur; r.camX = r.side === 'first' ? 0.5 : -0.5;
   r3Stacks(); r3Fill();
 }
-const r3Full = new Map(), r3FullPending = new Set();
+const r3Full = new Map(), r3FullPending = new Set(), r3Queued = new Set();
 function r3Source(page){                              // {c, r}: the page picture and the part of the page it shows
   if (S.r3margins !== false) {
     const c = r3Full.get(page);
@@ -1786,10 +1824,11 @@ function r3Source(page){                              // {c, r}: the page pictur
 }
 async function r3RenderFull(page){                     // the whole printed page, margins and all
   if (!pdf || r3FullPending.has(page) || page < 1 || page > nPages) return;
+  if (r3 && (r3.tw || r3.turn || r3.drag || r3FullPending.size)) { if (!r3Queued.has(page)) { r3Queued.add(page); setTimeout(()=>{ r3Queued.delete(page); if (r3 && !r3Full.has(page)) r3RenderFull(page); }, 260); } return; }
   r3FullPending.add(page); const g = gen;
   try {
     const pg = await pdf.getPage(page), v1 = pg.getViewport({scale: 1});
-    const pxW = Math.min(1600, Math.round(innerWidth*Math.min(devicePixelRatio || 1, 2)*(innerWidth > innerHeight ? 0.6 : 1.1)));
+    const pxW = Math.min(1200, Math.round(innerWidth*Math.min(devicePixelRatio || 1, 2)*(innerWidth > innerHeight ? 0.55 : 1)));
     const vp = pg.getViewport({scale: pxW/v1.width});
     const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
     const cx = c.getContext('2d', {willReadFrequently: true}); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);
@@ -1913,13 +1952,17 @@ function r3Fill(){                                     // textures for what is o
   for (const p of [r.first - 2, r.first - 1, r.first + 2, r.first + 3]) if (p >= 1 && p <= nPages) r3Canvas(p);
   r3Warm();
 }
-function r3Warm(){                                     // get both possible turns ready while you read
+function r3Warm(){                                     // get both possible turns ready while you read, a little at a time
   const r = r3; if (!r || r.warmT) return;
-  r.warmT = setTimeout(()=>{
-    r.warmT = 0; if (!r3 || r3 !== r || r.turn || r.tw) return;
-    const f = r.first, jobs = [[f + 1, false], [f + 2, true], [f + 3, false], [f + 2, false], [f - 1, false], [f, true], [f - 2, false], [f - 1, true]];
-    for (const [p, fl] of jobs) if (p >= 1 && p <= nPages) r3TexFor(p, fl);
-  }, 120);
+  const f0 = r.first, jobs = [[f0 + 1, false], [f0 + 2, true], [f0 + 3, false], [f0 + 2, false], [f0 - 1, false], [f0, true], [f0 - 2, false], [f0 - 1, true]].filter(([p]) => p >= 1 && p <= nPages);
+  const step = ()=>{
+    r.warmT = 0;
+    if (!r3 || r3 !== r || r.first !== f0 || !jobs.length) return;
+    if (r.turn || r.tw || r.drag || r.pts.size) { r.warmT = setTimeout(step, 200); return; }
+    const [p, fl] = jobs.shift(); r3TexFor(p, fl);
+    if (jobs.length) r.warmT = setTimeout(step, 30);
+  };
+  r.warmT = setTimeout(step, 90);
 }
 function r3Refresh(){                                  // called whenever the flat reader would redraw
   const r = r3; if (!r) return;
@@ -1943,6 +1986,7 @@ function r3SheetPose(p, lift){                         // p: 0 = lying on the le
   }
   pos.needsUpdate = true; r.sheetGeo.computeVertexNormals(); r.sheetGeo.computeBoundingSphere();
   r.sheetP = p;
+  { let mn = 1, mx = -1; for (let i=0; i<pos.count; i += r.NX + 1) for (let k=0; k<=r.NX; k += 4) { const xx = pos.getX(i + k); if (xx < mn) mn = xx; if (xx > mx) mx = xx; } r3PaintShade(mn, mx, p); }
   if (!r.both && r.turn) r.camX = -0.5 + p;            // the camera follows the sheet across
   r.dirty = true;
 }
@@ -1954,7 +1998,7 @@ function r3BeginTurn(dir, lift){
 }
 function r3EndTurn(done){
   const r = r3, t = r.turn; r.turn = null;
-  r.sheet.forEach(m => m.visible = false);
+  r.sheet.forEach(m => m.visible = false); r3PaintShade(0, 0, 0);
   if (done) {
     r.first += t.dir === 'next' ? 2 : -2;
     r.side = r.both ? 'first' : (t.dir === 'next' ? 'first' : 'second');
@@ -2004,7 +2048,7 @@ function r3Jump(target){                              // you opened the book at 
   r3BeginTurn(dir, 0.3);
   const to = dir === 'next' ? 1 : 0, p0 = 1 - to;
   r3Tween(380, e => r3SheetPose(p0 + (to - p0)*e, 0.3), ()=>{
-    r.turn = null; r.sheet.forEach(m => m.visible = false);
+    r.turn = null; r.sheet.forEach(m => m.visible = false); r3PaintShade(0, 0, 0);
     r.syncing = true; setView(firstView(target)); r.syncing = false; r.view = -1; r3Refresh();
   }, easeOut3);
 }
@@ -2043,7 +2087,7 @@ function r3Loop(now){
   }
   const dt = Math.min(0.05, (now - (r.lastT || now))/1000); r.lastT = now;
   if (r.drag && r.target !== undefined && Math.abs(r.target - r.sheetP) > 0.0005) {   // the sheet follows the finger softly
-    r3SheetPose(r.sheetP + (r.target - r.sheetP)*(1 - Math.exp(-dt*22)), r.turn.lift);
+    r3SheetPose(r.sheetP + (r.target - r.sheetP)*(1 - Math.exp(-dt*38)), r.turn.lift);
   }
   if (!r.dirty) return;
   r.dirty = false;

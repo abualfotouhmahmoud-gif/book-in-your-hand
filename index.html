@@ -444,6 +444,12 @@ const T = () => THEMES[S.theme] || THEMES.day;
 const PAPER = {thin:{show:0.075, dur:0.85, snd:0.75}, std:{show:0.04, dur:1, snd:1}, thick:{show:0.012, dur:1.2, snd:1.3}};
 const paperOf = () => (curMeta && curMeta.paper) || (mushafOn() ? 'thin' : 'std');
 const paperK = () => PAPER[paperOf()] || PAPER.std;
+function bookThickness(){                            // the page block, as a fraction of the page width, like a printed book
+  const perPage = {thin: 0.035, std: 0.05, thick: 0.07}[paperOf()] || 0.05;   // mm per page (one side of a leaf): 80 g paper ≈ 0.1 mm a leaf
+  let wmm = (typeof pageW === 'number' ? pageW : 0)*25.4/72;                   // the PDF's own page width
+  if (!(wmm >= 90 && wmm <= 320)) wmm = 145;                                    // scans with odd sizes: assume a usual book page
+  return Math.max(0.004, (nPages || 100)*perPage/wmm);
+}
 const RM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 let AR = {};                                         // Arabic interface strings (filled in further down)
 const isAr = () => S.lang === 'ar';
@@ -893,7 +899,7 @@ function spine(){
 }
 let bgC = null, bgKey = '';
 function stackDims(){
-  const p = realPage(cur), TT = Math.max(3, Math.min(16, nPages*0.025)), prog = nPages > 1 ? (p-1)/(nPages-1) : 0;
+  const p = realPage(cur), TT = Math.max(2, Math.min(14, bookThickness()*R.w*0.25)), prog = nPages > 1 ? (p-1)/(nPages-1) : 0;
   return {unread: Math.max(p < nPages ? 0.8 : 0, TT*(1-prog)), read: TWO() ? Math.max(p > 1 ? 0.8 : 0, TT*prog) : 0};
 }
 function drawStack(){                               // cover board + page block, rebuilt only when the page changes
@@ -1117,7 +1123,7 @@ let closedXf = null;                                 // the slight shrink of the
 function book3D(k){
   const back = !!intro.back, sd = back ? -1 : 1, W = R.w, H = R.h, ex = 6, Lb = W + ex, night = S.theme === 'night';
   const HX = back ? backHinge() : coverHinge(), xa = HX - sd*Lb, x0 = Math.min(HX, xa), x1 = Math.max(HX, xa), y0 = -ex, y1 = H + ex;
-  const Tk = Math.max(16, Math.min(40, 13 + (nPages || 100)*0.045))*k;       // thicker books look thicker
+  const Tk = Math.max(5, bookThickness()*R.w)*k;    // as thick as the real book would be
   const vx = sd*Tk*0.9, vy = Tk*0.72;
   const sc = 1 - 0.17*k, cx = (x0 + x1)/2 + vx/2, cy = H/2 + vy/2;
   closedXf = {sc, cx, cy};
@@ -1311,7 +1317,7 @@ function v3EdgeCanvas(vertical, gilt){              // the edges of the leaves
 }
 function v3Build(T3){
   const r = v3d, w = 1, h = R.h/R.w, n = nPages || 100;
-  const t = Math.max(0.05, Math.min(0.36, 0.03 + n*0.0005)), bt = 0.026, oh = 0.03;
+  const t = Math.max(0.012, bookThickness()), bt = 0.026, oh = 0.03;
   const sg = LTR() ? -1 : 1, board = v3BoardColor(), gilt = mushafOn();
   r.dims = {w, h, t, sg};
   const aniso = r.ren.capabilities.getMaxAnisotropy();
@@ -1596,7 +1602,7 @@ function r3Surf(d, ts){                               // height of the top page 
 const r3D = i => Math.pow(i, 1.7);                     // more points near the spine, where the paper bends
 function r3Build(){
   const r = r3, T3 = r.T3, h = R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
-  r.h = h; r.T = Math.max(0.05, Math.min(0.36, 0.03 + n*0.0005)); r.bt = 0.022; r.sg = sg;
+  r.h = h; r.T = Math.max(0.006, bookThickness()); r.bt = 0.022; r.sg = sg;
   const g = new T3.Group(); g.scale.x = sg; r.scene.add(g); r.g = g;    // logical (Arabic) layout, mirrored for English books
   const mat = o => { const m = new T3.MeshStandardMaterial(Object.assign({roughness: 0.85, metalness: 0}, o)); r.mats.push(m); return m; };
   r.mat = mat;

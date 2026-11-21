@@ -1,5 +1,5 @@
 // Book in Your Hand — service worker: works offline and receives PDFs shared from other apps.
-const CACHE = 'biyh-v12';
+const CACHE = 'biyh-v13';
 const ASSETS = [
   './', './index.html', './pdf.min.js', './pdf.worker.min.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'

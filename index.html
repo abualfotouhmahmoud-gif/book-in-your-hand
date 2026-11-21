@@ -22,6 +22,9 @@
   #book{position:fixed;inset:0;touch-action:none;display:block}
   #dim,#tint{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0}
   #dim{background:#000}
+  #r3c{position:fixed;inset:0;width:100%;height:100%;z-index:2;touch-action:none;display:block}
+  body.r3on #book{visibility:hidden}
+  body.r3on #r3Btn{color:#c9a66b}
   #v3d{position:fixed;inset:0;z-index:6;display:none;touch-action:none;transition:opacity .38s ease;user-select:none;-webkit-user-select:none}
   #v3d.on{display:block} #v3d.fade{opacity:0;pointer-events:none}
   #v3d.opening #v3top,#v3d.opening #v3bot{opacity:0;pointer-events:none;transition:opacity .3s}
@@ -302,6 +305,7 @@
   <button class="ib" id="libBtn" title="Library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
   <div id="title"></div>
   <button class="ib" id="noteBtn" title="Add a note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/><path d="M8 9h8M8 12.5h5"/></svg></button>
+  <button class="ib" id="r3Btn" title="Read in 3D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
   <button class="ib" id="annBtn" title="Highlight, draw, clip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></button>
   <button class="ib" id="bmBtn" title="Bookmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
   <button class="ib" id="navBtn" title="Contents, pages, bookmarks, quotes, search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></button>
@@ -379,6 +383,7 @@
   <label class="row sw"><span>Auto page-turn<small id="autoNote">Turns to the next page by itself</small></span><input type="checkbox" id="optAuto"><i></i></label>
   <div class="row"><span>Turn every</span><input type="range" id="autoSec" min="5" max="180" step="5"><span class="val" id="autoVal"></span></div>
   <div class="row"><span>Daily goal</span><input type="range" id="goal" min="5" max="100" step="5"><span class="val" id="goalVal"></span></div>
+  <label class="row sw"><span>Read in 3D<small>The open book lies on the table; drag up or down to tilt it</small></span><input type="checkbox" id="optRead3d"><i></i></label>
   <label class="row sw"><span>Closed book in 3D<small>Turn it, zoom in and open it in 3D</small></span><input type="checkbox" id="optBook3d"><i></i></label>
   <label class="row sw"><span>Opening animation<small>The book starts closed, then the cover opens</small></span><input type="checkbox" id="optOpen"><i></i></label>
   <div class="sec">Sound &amp; device</div>
@@ -425,7 +430,7 @@ if (!lib) { $('empty').querySelector('p').textContent = 'Could not load the PDF 
 lib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
 /* ================= settings ================= */
-const DEF = {book3d:true, lamp:'off', tilt:false, theme:'day', bright:1, warm:0, crop:true, half:false, spread:true, bookView:true, bg:'wood', openAnim:true, awake:true, sound:true, vibe:true, autoSec:30, goal:20};
+const DEF = {read3d:false, book3d:true, lamp:'off', tilt:false, theme:'day', bright:1, warm:0, crop:true, half:false, spread:true, bookView:true, bg:'wood', openAnim:true, awake:true, sound:true, vibe:true, autoSec:30, goal:20};
 const S = Object.assign({}, DEF);
 try { Object.assign(S, JSON.parse(localStorage.getItem('rtl-settings') || '{}')); } catch(_){}
 function saveS(){ try { localStorage.setItem('rtl-settings', JSON.stringify(S)); } catch(_){} }
@@ -1533,6 +1538,340 @@ function close3D(){
 $('v3open').onclick = ()=>v3OpenBook();
 document.querySelectorAll('#v3views button').forEach(b => b.onclick = ()=>v3Go(b.dataset.v));
 $('v3lib').onclick = ()=>{ close3D(); showLibraryNow(); };
+/* ================= reading in 3D: the open book on the table ================= */
+let r3 = null, r3Starting = false;
+const want3D = () => !!S.read3d && webglOK && reading() && !!pdf && !intro && !annot.on && !noteMove && !v3d;
+function setRead3d(on){
+  S.read3d = on; saveS(); syncSettingsUI();
+  if (on) toast(t('Reading in 3D · drag up or down to tilt the book'));
+  draw();
+}
+function r3Check(){
+  if (r3 && !r3.leaving && !want3D()) stopR3();
+  else if (!r3 && !r3Starting && want3D()) startR3();
+}
+async function startR3(){
+  r3Starting = true;
+  let T3;
+  try { T3 = await loadThree(); }
+  catch(_){ r3Starting = false; S.read3d = false; saveS(); syncSettingsUI(); toast(t('3D needs an internet connection the first time')); return; }
+  r3Starting = false;
+  if (r3 || !want3D()) return;
+  const cv3 = document.createElement('canvas'); cv3.id = 'r3c';
+  let ren;
+  try { ren = new T3.WebGLRenderer({canvas: cv3, antialias: true, alpha: true}); } catch(_){ S.read3d = false; saveS(); return; }
+  document.body.insertBefore(cv3, $('book').nextSibling);
+  r3 = {T3, ren, cv: cv3, texs: [], mats: [], geos: [], tex: new Map(), dirty: true, zoom: 1, tilt: 0.38, pan: {x: 0, y: 0}, pts: new Map(), camX: 0.5};
+  ren.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); ren.outputEncoding = T3.sRGBEncoding;
+  ren.shadowMap.enabled = true; ren.shadowMap.type = T3.PCFSoftShadowMap;
+  const scene = new T3.Scene(); r3.scene = scene;
+  r3.cam = new T3.PerspectiveCamera(30, 1, 0.02, 40);
+  scene.add(new T3.HemisphereLight(0xfff6e8, 0x30200f, 0.82));
+  const key = new T3.DirectionalLight(0xfff2de, 0.62); key.position.set(-1.6, 2.4, 4.2); key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024); const sc = key.shadow.camera; sc.left = sc.bottom = -2.4; sc.right = sc.top = 2.4; sc.near = 0.5; sc.far = 10; key.shadow.bias = -0.0008;
+  scene.add(key);
+  const table = new T3.Mesh(new T3.PlaneGeometry(30, 30), new T3.ShadowMaterial({opacity: 0.3}));
+  table.receiveShadow = true; scene.add(table); r3.geos.push(table.geometry); r3.mats.push(table.material);
+  r3Build();
+  r3Locate();
+  document.body.classList.add('r3on');
+  r3Resize(); r3Wire();
+  r3.raf = requestAnimationFrame(r3Loop);
+  try { const n = +localStorage.getItem('rtl-r3hint') || 0; if (n < 3) { localStorage.setItem('rtl-r3hint', n + 1); toast(t('Swipe to turn · drag up or down to tilt · pinch to zoom')); } } catch(_){}
+}
+function stopR3(){
+  const r = r3; if (!r) return;
+  r3 = null; cancelAnimationFrame(r.raf);
+  r.texs.forEach(x => x.dispose()); r.mats.forEach(x => x.dispose()); r.geos.forEach(x => x.dispose());
+  try { r.ren.dispose(); r.ren.forceContextLoss(); } catch(_){}
+  r.cv.remove(); document.body.classList.remove('r3on');
+  draw();
+}
+const r3Surf = (d, ts) => ts*(1 - Math.exp(-d/0.05));    // the top page dips into the gutter
+function r3Build(){
+  const r = r3, T3 = r.T3, h = R.h/R.w, n = nPages || 100, sg = LTR() ? -1 : 1;
+  r.h = h; r.T = Math.max(0.05, Math.min(0.36, 0.03 + n*0.0005)); r.bt = 0.022; r.sg = sg;
+  const g = new T3.Group(); g.scale.x = sg; r.scene.add(g); r.g = g;    // logical (Arabic) layout, mirrored for English books
+  const mat = o => { const m = new T3.MeshStandardMaterial(Object.assign({roughness: 0.85, metalness: 0}, o)); r.mats.push(m); return m; };
+  r.mat = mat;
+  const board = v3BoardColor(), gilt = mushafOn();
+  const boardM = mat({color: new T3.Color(board), roughness: 0.55});
+  const ebT = new T3.CanvasTexture(ebru()); ebT.encoding = T3.sRGBEncoding; r.texs.push(ebT); r.ebT = ebT;
+  const ebM = mat({color: new T3.Color(S.theme === 'night' ? '#5a5248' : '#e8dcc2'), roughness: 0.9});   // the plain pastedown at the board's edge
+  const oh = 0.03, bw = 1 + oh, bh = h + 2*oh;
+  [-1, 1].forEach(side => {                        // the two open boards lying on the table
+    const geo = new T3.BoxGeometry(bw, bh, r.bt); r.geos.push(geo);
+    const m = new T3.Mesh(geo, [boardM, boardM, boardM, boardM, ebM, boardM]);
+    m.position.set(side*(bw/2 + 0.004), 0, r.bt/2); m.receiveShadow = true; m.castShadow = true; g.add(m);
+  });
+  const spGeo = new T3.BoxGeometry(0.03, bh, r.bt*0.8); r.geos.push(spGeo);
+  const sp = new T3.Mesh(spGeo, boardM); sp.position.z = r.bt*0.4; g.add(sp);
+  const edge = (vertical) => { const tx = new T3.CanvasTexture(v3EdgeCanvas(vertical, gilt)); tx.encoding = T3.sRGBEncoding; tx.wrapS = tx.wrapT = T3.RepeatWrapping; r.texs.push(tx); return mat({map: tx, roughness: gilt ? 0.4 : 0.95, metalness: gilt ? 0.3 : 0}); };
+  r.capM = edge(false); r.sideM = edge(true);
+  r.paperT = new T3.CanvasTexture(v3Canvas(8, 8, (x, W, H)=>{ x.fillStyle = T().paper; x.fillRect(0, 0, W, H); })); r.texs.push(r.paperT);
+  r.pageM = {L: mat({map: r.paperT}), R: mat({map: r.paperT}), F: mat({map: r.paperT, side: T3.FrontSide}), B: mat({map: r.paperT, side: T3.BackSide})};
+  // the turning sheet: a grid we bend every frame
+  const NX = 40, NY = 8, pos = new Float32Array((NX + 1)*(NY + 1)*3), uv = new Float32Array((NX + 1)*(NY + 1)*2), idx = [];
+  for (let j=0; j<=NY; j++) for (let i=0; i<=NX; i++) { const k = j*(NX + 1) + i; uv[2*k] = 1 - i/NX; uv[2*k + 1] = j/NY; }
+  for (let j=0; j<NY; j++) for (let i=0; i<NX; i++) { const a = j*(NX + 1) + i, b = a + 1, c = a + NX + 2, d = a + NX + 1; idx.push(a, c, b, a, d, c); }
+  const sg2 = new T3.BufferGeometry(); sg2.setAttribute('position', new T3.BufferAttribute(pos, 3)); sg2.setAttribute('uv', new T3.BufferAttribute(uv, 2)); sg2.setIndex(idx);
+  r.geos.push(sg2); r.sheetGeo = sg2; r.NX = NX; r.NY = NY;
+  const f = new T3.Mesh(sg2, r.pageM.F), b = new T3.Mesh(sg2, r.pageM.B);
+  f.castShadow = b.castShadow = true; f.visible = b.visible = false; g.add(f); g.add(b); r.sheet = [f, b];
+}
+function r3StackGeo(ts){                               // a block of pages, curving down into the gutter
+  const T3 = r3.T3, sh = new T3.Shape(), N = 28, t2 = Math.max(ts, 0.002);
+  sh.moveTo(0, 0); sh.lineTo(1, 0);
+  for (let i=N; i>=0; i--) { const d = i/N; sh.lineTo(d, r3Surf(d, t2)); }
+  const geo = new T3.ExtrudeGeometry(sh, {depth: r3.h, bevelEnabled: false, curveSegments: 1, steps: 1});
+  geo.rotateX(Math.PI/2); geo.translate(0, r3.h/2, 0);
+  return geo;
+}
+function r3PageGeo(side, ts){                          // the top page lying on a stack (side: 1 = right, -1 = left)
+  const T3 = r3.T3, NX = 30, NY = 2, pos = [], uv = [], idx = [];
+  for (let j=0; j<=NY; j++) for (let i=0; i<=NX; i++) {
+    const d = i/NX, v = j/NY; pos.push(side*d, (v - 0.5)*r3.h, r3Surf(d, Math.max(ts, 0.002)) + 0.0012); uv.push(side > 0 ? d : 1 - d, v);
+  }
+  for (let j=0; j<NY; j++) for (let i=0; i<NX; i++) { const a = j*(NX + 1) + i, b = a + 1, c = a + NX + 2, d = a + NX + 1; if (side > 0) idx.push(a, b, c, a, c, d); else idx.push(a, c, b, a, d, c); }
+  const geo = new T3.BufferGeometry(); geo.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new T3.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+  return geo;
+}
+function r3Stacks(){                                   // (re)build both page blocks for where you are in the book
+  const r = r3, T3 = r.T3, n = nPages || 1;
+  (r.stackMeshes || []).forEach(m => { r.g.remove(m); m.geometry.dispose(); });
+  r.stackMeshes = [];
+  const fr = Math.max(0, Math.min(1, r.first/n));
+  r.tsR = r.T*fr; r.tsL = r.T*(1 - fr);
+  [[1, r.tsR, r.pageM.R], [-1, r.tsL, r.pageM.L]].forEach(([side, ts, pm])=>{
+    const blk = new T3.Mesh(r3StackGeo(ts), [r.capM, r.sideM]); blk.scale.x = side; blk.position.z = r.bt; blk.receiveShadow = true;
+    const pg = new T3.Mesh(r3PageGeo(side, ts), pm); pg.position.z = r.bt; pg.receiveShadow = true;
+    r.g.add(blk); r.g.add(pg); r.stackMeshes.push(blk, pg);
+  });
+  r.dirty = true;
+}
+function r3Locate(){                                   // pick up the reader's current page
+  const r = r3, p = realPage(cur);
+  r.first = isRightPage(p) ? p : p - 1;
+  r.side = p === r.first ? 'first' : 'second';
+  r.view = cur; r.camX = r.side === 'first' ? 0.5 : -0.5;
+  r3Stacks(); r3Fill();
+}
+function r3Canvas(page){                               // the printed page, in the reading theme
+  const k = keyFor(page), c = cache.get(k) || lowCache.get(k);
+  if (!c || !c.width) { load(k); return null; }
+  return c;
+}
+function r3TexFor(page, flip){
+  const r = r3, T3 = r.T3, n = nPages || 1;
+  if (page < 1 || page > n) return {t: r.ebT, ok: true};          // past the last leaf: the inside of the cover
+  const c = r3Canvas(page); if (!c) return {t: r.paperT, ok: false};
+  const fl = !!flip !== (r.sg < 0), key = page + '|' + fl + '|' + S.theme;
+  const old = r.tex.get(key);
+  if (old && old.src === c) return {t: old.t, ok: c === cache.get(keyFor(page))};
+  let src = c;
+  if (S.theme !== 'day') {                            // themed copy, like the flat reader
+    const f = {night: 'invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.9)', sepia: 'sepia(0.45) brightness(0.97)', dim: 'brightness(0.8) sepia(0.2)'}[S.theme];
+    if (f) src = v3Canvas(c.width, c.height, x => { x.filter = f; x.drawImage(c, 0, 0); });
+  }
+  const tx = new T3.CanvasTexture(src); tx.encoding = T3.sRGBEncoding; tx.anisotropy = r.ren.capabilities.getMaxAnisotropy();
+  if (fl) { tx.wrapS = T3.RepeatWrapping; tx.repeat.x = -1; tx.offset.x = 1; }
+  if (old) { old.t.dispose(); r.texs = r.texs.filter(z => z !== old.t); }
+  r.texs.push(tx); r.tex.set(key, {t: tx, src: c});
+  if (r.tex.size > 14) { const [k0, v0] = r.tex.entries().next().value; if (![r.pageM.L, r.pageM.R, r.pageM.F, r.pageM.B].some(m => m.map === v0.t)) { v0.t.dispose(); r.tex.delete(k0); } }
+  return {t: tx, ok: c === cache.get(keyFor(page))};
+}
+function r3SetMat(m, page, flip){
+  const q = r3TexFor(page, flip);
+  if (m.map !== q.t) { m.map = q.t; m.needsUpdate = true; }
+  if (!q.ok) r3.missing = true;
+  r3.dirty = true;
+}
+function r3Fill(){                                     // textures for what is on the table right now
+  const r = r3; r.missing = false;
+  const t = r.turn;
+  if (t) {
+    r3SetMat(r.pageM.F, t.front, false); r3SetMat(r.pageM.B, t.back, true);
+    r3SetMat(r.pageM.L, t.dir === 'next' ? r.first + 3 : r.first + 1, false);
+    r3SetMat(r.pageM.R, t.dir === 'next' ? r.first : r.first - 2, false);
+  } else { r3SetMat(r.pageM.R, r.first, false); r3SetMat(r.pageM.L, r.first + 1, false); }
+  for (const p of [r.first - 2, r.first - 1, r.first + 2, r.first + 3]) if (p >= 1 && p <= nPages) r3Canvas(p);
+}
+function r3Refresh(){                                  // called whenever the flat reader would redraw
+  const r = r3; if (!r) return;
+  if (r.syncing) return;
+  if (!r.turn && !r.tw && r.view !== cur) { r3Locate(); return; }
+  if (r.missing) r3Fill();
+}
+function r3SheetPose(p, lift){                         // p: 0 = lying on the left, 1 = lying on the right
+  const r = r3, pos = r.sheetGeo.attributes.position, NX = r.NX, NY = r.NY, h = r.h;
+  const a0 = Math.PI*p, k0 = 1.35*Math.sin(Math.PI*p);
+  for (let j=0; j<=NY; j++) {
+    const v = j/NY, y = (v - 0.5)*h;
+    let k = k0*(1 + 0.55*(lift || 0)*(0.5 - v)); k = Math.max(0, Math.min(k, Math.PI - a0));
+    for (let i=0; i<=NX; i++) {
+      const d = i/NX; let x, z;
+      if (k < 1e-4) { x = -d*Math.cos(a0); z = d*Math.sin(a0); }
+      else { x = -(Math.sin(a0 + k*d) - Math.sin(a0))/k; z = (Math.cos(a0) - Math.cos(a0 + k*d))/k; }
+      z += r.bt + (1 - p)*r3Surf(d, r.tsL) + p*r3Surf(d, r.tsR) + 0.0035;
+      pos.setXYZ(j*(NX + 1) + i, x, y, z);
+    }
+  }
+  pos.needsUpdate = true; r.sheetGeo.computeVertexNormals(); r.sheetGeo.computeBoundingSphere();
+  r.sheetP = p;
+  if (!r.both && r.turn) r.camX = -0.5 + p;            // the camera follows the sheet across
+  r.dirty = true;
+}
+function r3BeginTurn(dir, lift){
+  const r = r3;
+  r.turn = dir === 'next' ? {dir, front: r.first + 1, back: r.first + 2, lift} : {dir, front: r.first - 1, back: r.first, lift};
+  r3Fill(); r.sheet.forEach(m => m.visible = true);
+  r3SheetPose(dir === 'next' ? 0 : 1, lift);
+}
+function r3EndTurn(done){
+  const r = r3, t = r.turn; r.turn = null;
+  r.sheet.forEach(m => m.visible = false);
+  if (done) {
+    r.first += t.dir === 'next' ? 2 : -2;
+    r.side = r.both ? 'first' : (t.dir === 'next' ? 'first' : 'second');
+    r.camX = r.side === 'first' ? 0.5 : -0.5;
+    r3Stacks(); haptic(8);
+    r3Sync();
+  }
+  r3Fill();
+}
+function r3Sync(){                                     // keep the flat reader (progress, stats, bookmarks) in step
+  const r = r3, n = nPages, pg = Math.max(1, Math.min(n, r.side === 'first' ? r.first : r.first + 1));
+  r.syncing = true; setView(firstView(pg)); r.syncing = false; r.view = cur;
+}
+function r3Tween(d, step, done){ r3.tw = {t0: performance.now(), d, step, done}; r3.dirty = true; }
+function r3Turn(dir, from, lift){                       // animate a whole turn (or the rest of a dragged one)
+  const r = r3, to = dir === 'next' ? 1 : 0;
+  if (from === undefined) r3BeginTurn(dir, lift || 0.6);
+  const p0 = from === undefined ? 1 - to : from, dur = Math.max(160, 680*paperK().dur*Math.abs(to - p0));
+  if (from === undefined) turnSound(dur/1000, 1, dir);
+  r3Tween(dur, e => r3SheetPose(p0 + (to - p0)*e, r.turn ? r.turn.lift : 0), ()=> r3EndTurn(true));
+}
+function r3Pan(side){
+  const r = r3, x0 = r.camX, x1 = side === 'first' ? 0.5 : -0.5;
+  r.side = side; r3Tween(420, e => { r.camX = x0 + (x1 - x0)*e; }, ()=> r3Sync());
+}
+function r3Step(dir){
+  const r = r3; if (!r || r.tw || r.drag || r.turn) return;
+  unlockAudio(); stopAutoTimerOnly();
+  const n = nPages;
+  if (dir === 'next') {
+    if (!r.both && r.side === 'first' && r.first + 1 <= n) { r3Pan('second'); return; }
+    if (r.first + 2 > n) { r3Close('next'); return; }
+    r3Turn('next');
+  } else {
+    if (!r.both && r.side === 'second' && r.first >= 1) { r3Pan('first'); return; }
+    if (r.first - 1 < 1) { r3Close('prev'); return; }
+    r3Turn('prev');
+  }
+}
+function r3Close(dir){                                 // turning past the first or last page closes the book
+  r3.leaving = true; stopR3();
+  if (dir === 'next') closeToBack(); else closeToCover();
+}
+function r3Resize(){
+  const r = r3; if (!r) return;
+  r.ren.setSize(innerWidth, innerHeight, false);
+  r.cam.aspect = innerWidth/innerHeight; r.cam.updateProjectionMatrix();
+  r.both = innerWidth > innerHeight;
+  if (r.both) r.side = 'first';
+  r.dirty = true;
+}
+function r3Loop(now){
+  const r = r3; if (!r) return;
+  r.raf = requestAnimationFrame(r3Loop);
+  if (r.tw) {
+    const tw = r.tw, k = RM ? 1 : Math.min(1, (now - tw.t0)/tw.d); tw.step(easeInOut(k)); r.dirty = true;
+    if (k >= 1 && r.tw === tw) { r.tw = null; if (tw.done) tw.done(); autoSchedule(); }
+  }
+  if (!r.dirty) return;
+  r.dirty = false;
+  const cam = r.cam, tf = Math.tan(cam.fov*Math.PI/360);
+  const wNeed = r.both ? 2.14 : 1.05, hNeed = r.h*1.06*(1 + 0.18*Math.sin(r.tilt));
+  const D = Math.max(hNeed/2/tf, wNeed/2/(tf*cam.aspect))/r.zoom;
+  const tx = (r.both ? 0 : r.camX)*r.sg + r.pan.x, ty = r.pan.y, tz = r.bt + r.T*0.5;
+  cam.position.set(tx, ty - Math.sin(r.tilt)*D, tz + Math.cos(r.tilt)*D);
+  cam.up.set(0, 1, 0); cam.lookAt(tx, ty, tz);
+  r.ren.render(r.scene, cam);
+}
+function r3Wire(){
+  const cv3 = r3.cv;
+  let lastTap = 0;
+  cv3.onpointerdown = e=>{
+    const r = r3; if (!r) return;
+    try { cv3.setPointerCapture(e.pointerId); } catch(_){}
+    unlockAudio();
+    r.pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+    if (r.pts.size === 1) r.g1 = {x0: e.clientX, y0: e.clientY, t0: performance.now(), mode: null, tilt0: r.tilt, lx: e.clientX, lt: performance.now(), vx: 0};
+    if (r.pts.size === 2) { r.two = v3TwoOf(r); if (r.g1) r.g1.mode = 'two'; }
+  };
+  cv3.onpointermove = e=>{
+    const r = r3; if (!r || !r.pts.has(e.pointerId)) return;
+    const pt = r.pts.get(e.pointerId); pt.x = e.clientX; pt.y = e.clientY;
+    const g1 = r.g1;
+    if (r.pts.size >= 2 && r.two) {
+      const s2 = v3TwoOf(r), o = r.two, tf = Math.tan(r.cam.fov*Math.PI/360);
+      r.zoom = Math.max(0.6, Math.min(4, r.zoom*s2.d/o.d));
+      const wpp = 2*(r.cam.position.distanceTo(new r.T3.Vector3(r.cam.position.x, r.cam.position.y, r.bt)))*tf/innerHeight;
+      r.pan.x -= (s2.mx - o.mx)*wpp; r.pan.y += (s2.my - o.my)*wpp;
+      r.two = s2; r.dirty = true; return;
+    }
+    if (!g1 || g1.mode === 'two') return;
+    const dx = e.clientX - g1.x0, dy = e.clientY - g1.y0, now = performance.now();
+    g1.vx = (e.clientX - g1.lx)/Math.max(1, now - g1.lt); g1.lx = e.clientX; g1.lt = now;
+    if (!g1.mode) {
+      if (Math.hypot(dx, dy) < 10 || r.tw || r.turn) return;
+      if (Math.abs(dy) > Math.abs(dx)) g1.mode = 'tilt';
+      else {
+        const dir = dx*r.sg > 0 ? 'next' : 'prev', n = nPages;
+        stopAutoTimerOnly();
+        if (!r.both && ((dir === 'next' && r.side === 'first' && r.first + 1 <= n) || (dir === 'prev' && r.side === 'second'))) g1.mode = 'pan';
+        else if ((dir === 'next' && r.first + 2 > n) || (dir === 'prev' && r.first - 1 < 1)) g1.mode = 'end';
+        else { g1.mode = 'turn'; g1.dir = dir; const ry = (e.clientY/innerHeight); r3BeginTurn(dir, ry > 0.6 ? 1 : ry < 0.4 ? -1 : 0); r.drag = true; turnSound(0.22, 1, dir, 'lift'); }
+        g1.panDir = dir;
+      }
+    }
+    if (g1.mode === 'tilt') { r.tilt = Math.max(0, Math.min(1.15, g1.tilt0 + dy*0.0045)); r.dirty = true; }
+    else if (g1.mode === 'turn') {
+      const f = Math.max(0, Math.min(1, Math.abs(dx)/(innerWidth*(r.both ? 0.5 : 0.85))));
+      r3SheetPose(g1.dir === 'next' ? f : 1 - f, r.turn.lift);
+    }
+  };
+  const up = e=>{
+    const r = r3; if (!r || !r.pts.has(e.pointerId)) return;
+    r.pts.delete(e.pointerId);
+    if (r.pts.size < 2) r.two = null;
+    if (r.pts.size) return;
+    const g1 = r.g1; r.g1 = null; if (!g1) return;
+    const dx = e.clientX - g1.x0;
+    if (g1.mode === 'turn') {
+      r.drag = false;
+      const p = r.sheetP, prog = g1.dir === 'next' ? p : 1 - p, fling = Math.abs(g1.vx) > 0.5 && (g1.vx*r.sg > 0) === (g1.dir === 'next');
+      const done = e.type !== 'pointercancel' && (prog > 0.33 || fling);
+      if (done) { turnSound(0.4, 1, g1.dir, 'land'); r3Turn(g1.dir, p); }
+      else { const to = g1.dir === 'next' ? 0 : 1; r3Tween(220, ee => r3SheetPose(p + (to - p)*ee, r.turn.lift), ()=> r3EndTurn(false)); }
+    } else if (g1.mode === 'pan' || g1.mode === 'end') { if (Math.abs(dx) > 40) r3Step(g1.panDir); }
+    else if (!g1.mode && e.type !== 'pointercancel' && performance.now() - g1.t0 < 400) {
+      const now = performance.now();
+      if (now - lastTap < 320) { lastTap = 0; r.zoom = 1; r.pan = {x: 0, y: 0}; r.tilt = 0.38; r.dirty = true; return; }   // double tap: back to the normal view
+      lastTap = now;
+      const fx = e.clientX/innerWidth, f = r.sg > 0 ? fx : 1 - fx;
+      if (f < 0.28) r3Step('next'); else if (f > 0.72) r3Step('prev');
+      else setTimeout(()=>{ if (lastTap === now) setBars(document.body.classList.contains('hide-bars')); }, 330);
+    }
+    autoSchedule();
+  };
+  cv3.onpointerup = cv3.onpointercancel = up;
+  cv3.onwheel = e=>{ e.preventDefault(); const r = r3; if (!r) return; r.zoom = Math.max(0.6, Math.min(4, r.zoom*(e.deltaY < 0 ? 1.1 : 0.9))); r.dirty = true; };
+}
+function v3TwoOf(r){
+  const [a, b] = [...r.pts.values()];
+  return {d: Math.max(10, Math.hypot(b.x - a.x, b.y - a.y)), mx: (a.x + b.x)/2, my: (a.y + b.y)/2};
+}
 let ebruC = null, ebruFor = '';
 function ebru(){                                     // traditional marbled paper, made once
   const key = (R.w|0) + 'x' + (R.h|0) + S.theme;
@@ -1648,8 +1987,10 @@ function startIntro(cover, after){ if (use3D() && start3D(cover, after)) return;
 
 function draw(){
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+  r3Check();
   if (!pdf || !reading()) return;
   if (v3d && !v3d.leaving) return;                  // the 3D book is on show
+  if (r3) { r3Refresh(); return; }                  // reading in 3D
   const W = R.w;
   const g = (anim && !anim.pan) ? geom(anim.P, anim.cy) : null;
   if (anim && !anim.pan && mode === 'book') {    // the camera follows the turning sheet
@@ -1890,6 +2231,7 @@ function animatePan(to, dur, done){
   requestAnimationFrame(step);
 }
 function turn(dir){
+  if (r3) { r3Step(dir); return; }
   if (intro) { if (intro.closed) { if (dir === (intro.back ? 'prev' : 'next')) reopenCover(); } else if (!intro.closing) intro.skip = true; return; }
   if (busy || !pdf || anim || Z.s > 1.001 || annot.on || noteMove) return;
   const a = makeAnim(dir, R.h);
@@ -2159,7 +2501,7 @@ addEventListener('keydown', e=>{
   else if (e.key === back || e.key === 'PageUp') { e.preventDefault(); turn('prev'); }
 });
 let rzT;
-addEventListener('resize', ()=>{ if (v3d) v3Resize(); });
+addEventListener('resize', ()=>{ if (v3d) v3Resize(); if (r3) r3Resize(); });
 addEventListener('resize', ()=>{ clearTimeout(rzT); rzT = setTimeout(()=>{ if (!anim && reading()) relayout(); }, 120); });
 
 /* ================= annotations: highlight, pen, eraser, quote clips ================= */
@@ -2423,7 +2765,7 @@ function syncSettingsUI(){
   $('optSound').checked = S.sound; $('optVibe').checked = S.vibe; $('optAuto').checked = autoOn;
   $('autoSec').value = S.autoSec; $('autoVal').textContent = t('{s} s', {s:S.autoSec});
   $('goal').value = S.goal; $('goalVal').textContent = t('{n} pages', {n:S.goal});
-  $('optOpen').checked = S.openAnim; $('optBook3d').checked = S.book3d !== false; $('optTilt').checked = !!S.tilt;
+  $('optOpen').checked = S.openAnim; $('optBook3d').checked = S.book3d !== false; $('optRead3d').checked = !!S.read3d; $('optTilt').checked = !!S.tilt;
   document.querySelectorAll('#lampSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v === (S.lamp || 'off')));
   document.querySelectorAll('#paperSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v === paperOf()));
   const isPreset = BGS.hasOwnProperty(S.bg) || TEX.hasOwnProperty(S.bg);
@@ -2466,6 +2808,8 @@ $('bgPick').oninput = e=>{ S.bg = e.target.value; saveS(); applyBg(); syncSettin
 document.querySelectorAll('#lampSeg button').forEach(b=>b.onclick = ()=>{ S.lamp = b.dataset.v; saveS(); applyLamp(); syncSettingsUI(); });
 document.querySelectorAll('#paperSeg button').forEach(b=>b.onclick = ()=>{ if (!curMeta) return; curMeta.paper = b.dataset.v; saveMeta(); syncSettingsUI(); draw(); feedback(); });
 $('optTilt').onchange = e=>setTilt(e.target.checked);
+$('optRead3d').onchange = e=>setRead3d(e.target.checked);
+$('r3Btn').onclick = ()=>{ setRead3d(!S.read3d); feedback(); };
 $('optBook3d').onchange = e=>{ S.book3d = e.target.checked; saveS(); if (S.book3d) loadThree().catch(()=>{}); };
 $('optOpen').onchange = e=>{ S.openAnim = e.target.checked; saveS(); };
 function applyLight(){
@@ -2936,6 +3280,7 @@ function showLibrary(){                             // close the book (cover swi
 }
 function showLibraryNow(){
   if (v3d) close3D();
+  if (r3) stopR3();
   intro = null; if (noteMove) endNoteMove();
   closeSheets(); if (annot.on) setAnnot(false); resetZoom();
   autoOn = false;
@@ -3240,7 +3585,10 @@ Object.assign(AR, {
  'Drag the note to where you want it':'اسحب الملاحظة إلى المكان الذي تريده', 'Note':'ملاحظة', 'Edit':'تعديل', 'Move':'نقل', 'Edit note':'تعديل الملاحظة', 'Note deleted':'حُذفت الملاحظة',
  'Hide the phone’s status bar':'إخفاء شريط حالة الهاتف',
  'Bookshelf view':'عرض رف الكتب', 'Cover view':'عرض الأغلفة',
- 'Open the book':'افتح الكتاب', 'Front':'الأمام', 'Spine':'الكعب', 'Back':'الخلف', 'Reset':'إعادة',
+ 'Open the book':'افتح الكتاب', 'Read in 3D':'القراءة ثلاثية الأبعاد', 'The open book lies on the table; drag up or down to tilt it':'الكتاب مفتوح على الطاولة؛ اسحب لأعلى أو لأسفل لتميله',
+ 'Reading in 3D · drag up or down to tilt the book':'القراءة ثلاثية الأبعاد · اسحب لأعلى أو لأسفل لتميل الكتاب',
+ 'Swipe to turn · drag up or down to tilt · pinch to zoom':'اسحب جانبًا للتقليب · لأعلى أو لأسفل للإمالة · إصبعان للتكبير',
+ '3D needs an internet connection the first time':'الوضع ثلاثي الأبعاد يحتاج اتصالًا بالإنترنت أول مرة', 'Front':'الأمام', 'Spine':'الكعب', 'Back':'الخلف', 'Reset':'إعادة',
  'Closed book in 3D':'الكتاب المقفول ثلاثي الأبعاد', 'Turn it, zoom in and open it in 3D':'لفّه وقرّبه وافتحه بشكل مجسم',
  'Drag to turn it · pinch to zoom · two fingers to move or twist':'اسحب لتلفّه · قرّب بإصبعين · إصبعان للتحريك واللف',
  'Swipe or tap the page edge to turn pages':'اسحب أو اضغط على طرف الصفحة لتقليبها', 'Tap the <b>centre</b> for the menu · <b>double-tap</b> or pinch to zoom':'اضغط <b>وسط</b> الصفحة للقائمة · <b>ضغطتان</b> أو إصبعان للتكبير', 'Turn your phone sideways to see two pages':'أدر الهاتف بالعرض لترى صفحتين'
